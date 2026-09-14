@@ -1,0 +1,155 @@
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"text/tabwriter"
+
+	"github.com/SourceWard/sourceward/internal/audit"
+	"github.com/SourceWard/sourceward/internal/discovery"
+)
+
+const Version = "0.1.0-dev"
+
+func Run(args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 {
+		printHelp(stdout)
+		return nil
+	}
+
+	switch args[0] {
+	case "discover":
+		return runDiscover(args[1:], stdout, stderr)
+	case "audit":
+		return runAudit(args[1:], stdout, stderr)
+	case "version", "--version", "-v":
+		fmt.Fprintln(stdout, Version)
+		return nil
+	case "help", "--help", "-h":
+		printHelp(stdout)
+		return nil
+	default:
+		return fmt.Errorf("unknown command %q", args[0])
+	}
+}
+
+func runDiscover(args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("discover", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	root := flags.String("root", ".", "repository root to inspect")
+	format := flags.String("format", "table", "output format: table or json")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	found, err := discovery.Discover(context.Background(), discovery.Options{Root: *root})
+	if err != nil {
+		return err
+	}
+	if *format == "json" {
+		return writeJSON(stdout, found)
+	}
+	if *format != "table" {
+		return errors.New("format must be table or json")
+	}
+
+	writer := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(writer, "KIND\tNAME\tVERSION\tSCOPE\tSOURCE")
+	for _, artifact := range found.Artifacts {
+		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n",
+			artifact.Kind, artifact.Name, artifact.Version, artifact.Scope, artifact.Source)
+	}
+	return writer.Flush()
+}
+
+func runAudit(args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("audit", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	root := flags.String("root", ".", "repository root to inspect")
+	format := flags.String("format", "table", "output format: table or json")
+	failOn := flags.String("fail-on", "high", "minimum severity that causes a non-zero exit: critical, high, medium, low, none")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if !validThreshold(*failOn) {
+		return errors.New("fail-on must be critical, high, medium, low, or none")
+	}
+
+	found, err := discovery.Discover(context.Background(), discovery.Options{Root: *root})
+	if err != nil {
+		return err
+	}
+	findings, err := audit.Audit(found)
+	if err != nil {
+		return err
+	}
+
+	if *format == "json" {
+		if err := writeJSON(stdout, map[string]any{"findings": findings}); err != nil {
+			return err
+		}
+	} else if *format == "table" {
+		writer := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
+		fmt.Fprintln(writer, "SEVERITY\tRULE\tARTIFACT\tLOCATION\tDESCRIPTION")
+		for _, finding := range findings {
+			fmt.Fprintf(writer, "%s\t%s\t%s\t%s:%d\t%s\n",
+				finding.Severity, finding.RuleID, finding.ArtifactID,
+				finding.Path, finding.Line, finding.Description)
+		}
+		if len(findings) == 0 {
+			fmt.Fprintln(writer, "none\t-\t-\t-\tNo findings")
+		}
+		if err := writer.Flush(); err != nil {
+			return err
+		}
+	} else {
+		return errors.New("format must be table or json")
+	}
+
+	if shouldFail(findings, *failOn) {
+		return fmt.Errorf("audit found issues at or above %s severity", *failOn)
+	}
+	return nil
+}
+
+func shouldFail(findings []audit.Finding, threshold string) bool {
+	ranks := map[string]int{"critical": 0, "high": 1, "medium": 2, "low": 3, "none": -1}
+	limit := ranks[threshold]
+	if threshold == "none" {
+		return false
+	}
+	for _, finding := range findings {
+		if ranks[finding.Severity] <= limit {
+			return true
+		}
+	}
+	return false
+}
+
+func validThreshold(threshold string) bool {
+	switch threshold {
+	case "critical", "high", "medium", "low", "none":
+		return true
+	default:
+		return false
+	}
+}
+
+func writeJSON(writer io.Writer, value any) error {
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
+}
+
+func printHelp(writer io.Writer) {
+	fmt.Fprintln(writer, `SourceWard inventories and audits the capabilities developers and AI agents run.
+
+Usage:
+  sourceward discover [--root PATH] [--format table|json]
+  sourceward audit [--root PATH] [--format table|json] [--fail-on SEVERITY]
+  sourceward version`)
+}

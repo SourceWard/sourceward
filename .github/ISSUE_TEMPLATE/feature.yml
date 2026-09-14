@@ -1,0 +1,21 @@
+name: Feature request
+description: Propose a focused capability or integration
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    attributes:
+      label: Problem
+      description: What user or security problem should SourceWard solve?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed outcome
+      description: Describe the observable behavior, not only an implementation.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Relevant artifact types
+      description: Agent Skills, MCP servers, extensions, hooks, or another type.
