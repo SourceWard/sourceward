@@ -9,6 +9,9 @@ support for additional capability formats.
 make check
 ```
 
+`make check` verifies formatting, runs static analysis and unit tests, exercises
+the compiled CLI against an isolated fixture, and builds the binary.
+
 Changes should:
 
 - Include tests for new behavior.

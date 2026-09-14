@@ -11,11 +11,25 @@ import (
 
 	"github.com/SourceWard/sourceward/internal/audit"
 	"github.com/SourceWard/sourceward/internal/discovery"
+	"github.com/SourceWard/sourceward/internal/inventory"
 )
 
 const Version = "0.1.0-dev"
 
-func Run(args []string, stdout, stderr io.Writer) error {
+type Application struct {
+	discover func(context.Context, discovery.Options) (inventory.Inventory, error)
+	audit    func(inventory.Inventory) ([]audit.Finding, error)
+}
+
+func New() Application {
+	return Application{
+		discover: discovery.Discover,
+		audit:    audit.Audit,
+	}
+}
+
+func (application Application) Run(args []string, stdout, stderr io.Writer) error {
+	ctx := context.Background()
 	if len(args) == 0 {
 		printHelp(stdout)
 		return nil
@@ -23,9 +37,9 @@ func Run(args []string, stdout, stderr io.Writer) error {
 
 	switch args[0] {
 	case "discover":
-		return runDiscover(args[1:], stdout, stderr)
+		return application.runDiscover(ctx, args[1:], stdout, stderr)
 	case "audit":
-		return runAudit(args[1:], stdout, stderr)
+		return application.runAudit(ctx, args[1:], stdout, stderr)
 	case "version", "--version", "-v":
 		fmt.Fprintln(stdout, Version)
 		return nil
@@ -37,24 +51,30 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	}
 }
 
-func runDiscover(args []string, stdout, stderr io.Writer) error {
+func (application Application) runDiscover(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet("discover", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository root to inspect")
 	format := flags.String("format", "table", "output format: table or json")
 	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("discover does not accept positional arguments")
+	}
+	if err := validateFormat(*format); err != nil {
 		return err
 	}
 
-	found, err := discovery.Discover(context.Background(), discovery.Options{Root: *root})
+	found, err := application.discover(ctx, discovery.Options{Root: *root})
 	if err != nil {
 		return err
 	}
 	if *format == "json" {
 		return writeJSON(stdout, found)
-	}
-	if *format != "table" {
-		return errors.New("format must be table or json")
 	}
 
 	writer := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
@@ -66,24 +86,33 @@ func runDiscover(args []string, stdout, stderr io.Writer) error {
 	return writer.Flush()
 }
 
-func runAudit(args []string, stdout, stderr io.Writer) error {
+func (application Application) runAudit(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet("audit", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository root to inspect")
 	format := flags.String("format", "table", "output format: table or json")
 	failOn := flags.String("fail-on", "high", "minimum severity that causes a non-zero exit: critical, high, medium, low, none")
 	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("audit does not accept positional arguments")
+	}
+	if err := validateFormat(*format); err != nil {
 		return err
 	}
 	if !validThreshold(*failOn) {
 		return errors.New("fail-on must be critical, high, medium, low, or none")
 	}
 
-	found, err := discovery.Discover(context.Background(), discovery.Options{Root: *root})
+	found, err := application.discover(ctx, discovery.Options{Root: *root})
 	if err != nil {
 		return err
 	}
-	findings, err := audit.Audit(found)
+	findings, err := application.audit(found)
 	if err != nil {
 		return err
 	}
@@ -106,8 +135,6 @@ func runAudit(args []string, stdout, stderr io.Writer) error {
 		if err := writer.Flush(); err != nil {
 			return err
 		}
-	} else {
-		return errors.New("format must be table or json")
 	}
 
 	if shouldFail(findings, *failOn) {
@@ -128,6 +155,13 @@ func shouldFail(findings []audit.Finding, threshold string) bool {
 		}
 	}
 	return false
+}
+
+func validateFormat(format string) error {
+	if format != "table" && format != "json" {
+		return errors.New("format must be table or json")
+	}
+	return nil
 }
 
 func validThreshold(threshold string) bool {
