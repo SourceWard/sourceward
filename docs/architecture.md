@@ -31,7 +31,8 @@ representation without changing the audit domain model.
 
 - `cmd/sourceward` contains process wiring only.
 - `internal/cli` validates input before invoking application behavior.
-- `internal/discovery` finds provider-specific artifacts and normalizes them.
+- `internal/discovery` runs provider adapters, normalizes artifacts, and
+  aggregates structured diagnostics.
 - `internal/audit` evaluates normalized artifacts and returns evidence.
 - `internal/lockfile` creates deterministic integrity records and detects drift.
 - `internal/inventory` defines provider-neutral domain types.
@@ -67,7 +68,8 @@ requests, or other work begins.
 
 Agent Skills, IDE extensions, MCP servers, hooks, and future artifact types use
 one normalized inventory. Each provider integration is an adapter into that
-model.
+model. Independent adapter failures produce diagnostics and do not erase
+successful results from other providers.
 
 ### Stable automation contract
 

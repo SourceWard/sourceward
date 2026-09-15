@@ -11,6 +11,15 @@ type Artifact struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
+type Diagnostic struct {
+	Code     string `json:"code"`
+	Level    string `json:"level"`
+	Provider string `json:"provider"`
+	Message  string `json:"message"`
+	Path     string `json:"path,omitempty"`
+}
+
 type Inventory struct {
-	Artifacts []Artifact `json:"artifacts"`
+	Artifacts   []Artifact   `json:"artifacts"`
+	Diagnostics []Diagnostic `json:"diagnostics"`
 }

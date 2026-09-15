@@ -35,6 +35,9 @@ HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" discover \
 	--format json >"$work_dir/discover.json"
 grep -q '"id": "skill:unsafe-install"' "$work_dir/discover.json"
 grep -q '"scope": "project"' "$work_dir/discover.json"
+grep -q '"code": "provider_unavailable"' "$work_dir/discover.json"
+grep -q '"provider": "cursor"' "$work_dir/discover.json"
+grep -q '"provider": "visual-studio-code"' "$work_dir/discover.json"
 
 HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" audit \
 	--root "$fixture" \

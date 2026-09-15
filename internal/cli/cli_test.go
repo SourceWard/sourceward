@@ -55,14 +55,22 @@ func TestSubcommandHelpReturnsSuccess(t *testing.T) {
 }
 
 func TestDiscoverJSON(t *testing.T) {
-	found := inventory.Inventory{Artifacts: []inventory.Artifact{{
-		ID:      "skill:review",
-		Name:    "review",
-		Kind:    "agent-skill",
-		Version: "1.0.0",
-		Scope:   "project",
-		Source:  ".github/skills",
-	}}}
+	found := inventory.Inventory{
+		Artifacts: []inventory.Artifact{{
+			ID:      "skill:review",
+			Name:    "review",
+			Kind:    "agent-skill",
+			Version: "1.0.0",
+			Scope:   "project",
+			Source:  ".github/skills",
+		}},
+		Diagnostics: []inventory.Diagnostic{{
+			Code:     "provider_unavailable",
+			Level:    "info",
+			Provider: "cursor",
+			Message:  "editor command is not installed or not available on PATH",
+		}},
+	}
 	var stdout bytes.Buffer
 
 	err := testApplication(&found, nil).Run(
@@ -81,24 +89,41 @@ func TestDiscoverJSON(t *testing.T) {
 	if len(output.Artifacts) != 1 || output.Artifacts[0].ID != "skill:review" {
 		t.Fatalf("unexpected inventory %#v", output)
 	}
+	if len(output.Diagnostics) != 1 || output.Diagnostics[0].Code != "provider_unavailable" {
+		t.Fatalf("unexpected diagnostics %#v", output.Diagnostics)
+	}
 }
 
 func TestDiscoverTable(t *testing.T) {
-	found := inventory.Inventory{Artifacts: []inventory.Artifact{{
-		ID:     "visual-studio-code:github.copilot",
-		Name:   "github.copilot",
-		Kind:   "ide-extension",
-		Scope:  "personal",
-		Source: "visual-studio-code",
-	}}}
+	found := inventory.Inventory{
+		Artifacts: []inventory.Artifact{{
+			ID:     "visual-studio-code:github.copilot",
+			Name:   "github.copilot",
+			Kind:   "ide-extension",
+			Scope:  "personal",
+			Source: "visual-studio-code",
+		}},
+		Diagnostics: []inventory.Diagnostic{{
+			Code:     "provider_unavailable",
+			Level:    "info",
+			Provider: "cursor",
+			Message:  "editor command is not installed or not available on PATH",
+		}},
+	}
 	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 
-	if err := testApplication(&found, nil).Run([]string{"discover"}, &stdout, &bytes.Buffer{}); err != nil {
+	if err := testApplication(&found, nil).Run([]string{"discover"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	for _, expected := range []string{"KIND", "github.copilot", "visual-studio-code"} {
 		if !strings.Contains(stdout.String(), expected) {
 			t.Fatalf("output %q does not contain %q", stdout.String(), expected)
+		}
+	}
+	for _, expected := range []string{"DISCOVERY DIAGNOSTICS", "provider_unavailable", "cursor"} {
+		if !strings.Contains(stderr.String(), expected) {
+			t.Fatalf("diagnostics %q do not contain %q", stderr.String(), expected)
 		}
 	}
 }
