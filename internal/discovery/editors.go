@@ -285,14 +285,15 @@ func (adapter editorAdapter) readPackage(path string, options Options) (inventor
 
 	name := strings.TrimSpace(manifest.Publisher) + "." + strings.TrimSpace(manifest.Name)
 	return inventory.Artifact{
-		ID:       adapter.name + ":" + name,
-		Name:     name,
-		Kind:     "ide-extension",
-		Version:  strings.TrimSpace(manifest.Version),
-		Path:     path,
-		Source:   adapter.name,
-		Scope:    "personal",
-		Metadata: extensionMetadata(manifest),
+		ID:        adapter.name + ":" + name,
+		Name:      name,
+		Kind:      "ide-extension",
+		Version:   strings.TrimSpace(manifest.Version),
+		Path:      displayPath(path, options),
+		LocalPath: path,
+		Source:    adapter.name,
+		Scope:     "personal",
+		Metadata:  extensionMetadata(manifest),
 		Provenance: inventory.Provenance{
 			Kind:      "marketplace",
 			Provider:  adapter.name,

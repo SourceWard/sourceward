@@ -130,7 +130,8 @@ func artifactKey(artifact inventory.Artifact) string {
 		artifact.ID + "\x00" +
 		artifact.Scope + "\x00" +
 		artifact.Source + "\x00" +
-		artifact.Path
+		artifact.Path + "\x00" +
+		artifact.LocalPath
 }
 
 func diagnosticKey(diagnostic inventory.Diagnostic) string {

@@ -6,6 +6,7 @@ type Artifact struct {
 	Kind       string            `json:"kind"`
 	Version    string            `json:"version,omitempty"`
 	Path       string            `json:"path,omitempty"`
+	LocalPath  string            `json:"-"`
 	Source     string            `json:"source"`
 	Scope      string            `json:"scope"`
 	Metadata   map[string]string `json:"metadata,omitempty"`

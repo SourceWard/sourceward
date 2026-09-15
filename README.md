@@ -5,6 +5,10 @@
 SourceWard is a local-first inventory and security tool for the capabilities
 developers and AI agents install and execute.
 
+Version 0.1.0 is the first end-to-end MVP. Its complete safe and unsafe
+repository promise is exercised on Linux, macOS, and Windows; see
+[MVP acceptance](docs/acceptance.md).
+
 The initial CLI discovers:
 
 - Agent Skills in GitHub Copilot-compatible project and personal locations.

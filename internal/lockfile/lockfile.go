@@ -276,7 +276,10 @@ func marshal(locked Lockfile) ([]byte, error) {
 
 func artifactIntegrity(artifact inventory.Artifact, locked Artifact) (Integrity, error) {
 	if contentBacked(artifact) {
-		path := artifact.Path
+		path := artifact.LocalPath
+		if path == "" {
+			path = artifact.Path
+		}
 		if artifact.Kind == "agent-skill" {
 			path = filepath.Dir(path)
 		}
@@ -318,7 +321,7 @@ func artifactIntegrity(artifact inventory.Artifact, locked Artifact) (Integrity,
 }
 
 func contentBacked(artifact inventory.Artifact) bool {
-	return artifact.Path != "" &&
+	return (artifact.LocalPath != "" || artifact.Path != "") &&
 		(artifact.Kind == "agent-skill" || artifact.Kind == "ide-extension")
 }
 
