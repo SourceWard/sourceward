@@ -42,6 +42,7 @@ type claudeConfig struct {
 type jsonMCPServer struct {
 	Type     string                     `json:"type"`
 	Command  string                     `json:"command"`
+	Args     []string                   `json:"args"`
 	URL      string                     `json:"url"`
 	Env      map[string]json.RawMessage `json:"env"`
 	Headers  map[string]json.RawMessage `json:"headers"`
@@ -54,6 +55,7 @@ type codexConfig struct {
 
 type codexMCPServer struct {
 	Command           string            `toml:"command"`
+	Args              []string          `toml:"args"`
 	URL               string            `toml:"url"`
 	Env               map[string]any    `toml:"env"`
 	EnvVars           []any             `toml:"env_vars"`
@@ -72,6 +74,7 @@ type normalizedMCPServer struct {
 	envNames       []string
 	headerNames    []string
 	enabled        bool
+	riskSignals    map[string]string
 }
 
 func newMCPAdapter() Adapter {
@@ -234,9 +237,10 @@ func parseJSONMCPServers(servers map[string]json.RawMessage) ([]normalizedMCPSer
 			name,
 			server.Type,
 			server.Command,
+			server.Args,
 			server.URL,
-			mapKeys(server.Env),
-			mapKeys(server.Headers),
+			server.Env,
+			server.Headers,
 			!server.Disabled,
 		))
 	}
@@ -267,11 +271,14 @@ func parseCodexMCP(content []byte) ([]normalizedMCPServer, error) {
 			name,
 			"",
 			server.Command,
+			server.Args,
 			server.URL,
-			envNames,
-			headerNames,
+			mapAsRaw(server.Env),
+			mapAsRaw(server.HTTPHeaders),
 			enabled,
 		))
+		result[len(result)-1].envNames = uniqueSorted(envNames)
+		result[len(result)-1].headerNames = uniqueSorted(headerNames)
 	}
 	return result, nil
 }
@@ -279,10 +286,11 @@ func parseCodexMCP(content []byte) ([]normalizedMCPServer, error) {
 func normalizeMCPServer(
 	name,
 	explicitType,
-	command,
+	command string,
+	args []string,
 	endpoint string,
-	envNames,
-	headerNames []string,
+	env,
+	headers map[string]json.RawMessage,
 	enabled bool,
 ) normalizedMCPServer {
 	transport := strings.ToLower(strings.TrimSpace(explicitType))
@@ -319,9 +327,10 @@ func normalizeMCPServer(
 		command:        commandName,
 		endpointScheme: endpointScheme,
 		endpointHost:   endpointHost,
-		envNames:       uniqueSorted(envNames),
-		headerNames:    uniqueSorted(headerNames),
+		envNames:       uniqueSorted(mapKeys(env)),
+		headerNames:    uniqueSorted(mapKeys(headers)),
 		enabled:        enabled,
+		riskSignals:    mcpRiskSignals(commandName, args, endpoint, env, headers),
 	}
 }
 
@@ -357,6 +366,9 @@ func mcpArtifact(
 	if len(location.consumers) != 0 {
 		metadata["consumers"] = strings.Join(uniqueSorted(location.consumers), ",")
 	}
+	for key, value := range server.riskSignals {
+		metadata[key] = value
+	}
 
 	artifact := inventory.Artifact{
 		ID:       "mcp:" + location.provider + ":" + location.scope + ":" + name,
@@ -383,6 +395,156 @@ func mcpArtifact(
 		Message:  fmt.Sprintf("MCP server %q does not declare exactly one supported command or URL", name),
 		Path:     displayPath(location.path, options),
 	}
+}
+
+func mcpRiskSignals(
+	command string,
+	args []string,
+	endpoint string,
+	env,
+	headers map[string]json.RawMessage,
+) map[string]string {
+	signals := map[string]string{}
+	lowerCommand := strings.ToLower(command)
+	if containsString([]string{"sh", "bash", "zsh", "fish", "cmd", "cmd.exe", "powershell", "pwsh"}, lowerCommand) {
+		signals["risk_shell_execution"] = "true"
+	}
+	if target, ok := packageExecutionTarget(lowerCommand, args); ok && !packageTargetPinned(target) {
+		signals["risk_unpinned_package"] = "true"
+	}
+	if hasBroadFilesystemArgument(args) {
+		signals["risk_broad_filesystem"] = "true"
+	}
+	sensitiveNames := sensitiveNames(mapKeys(env))
+	if len(sensitiveNames) != 0 {
+		signals["risk_sensitive_environment"] = strings.Join(sensitiveNames, ",")
+	}
+	if hasInlineCredentials(endpoint, env, headers) {
+		signals["risk_inline_credentials"] = "true"
+	}
+	if parsed, err := url.Parse(endpoint); err == nil &&
+		strings.EqualFold(parsed.Scheme, "http") &&
+		parsed.Hostname() != "localhost" &&
+		parsed.Hostname() != "127.0.0.1" &&
+		parsed.Hostname() != "::1" {
+		signals["risk_insecure_transport"] = "true"
+	}
+	return signals
+}
+
+func packageExecutionTarget(command string, args []string) (string, bool) {
+	switch command {
+	case "npx", "bunx", "uvx":
+	case "pnpm", "yarn":
+		if len(args) == 0 || args[0] != "dlx" {
+			return "", false
+		}
+		args = args[1:]
+	default:
+		return "", false
+	}
+	for _, argument := range args {
+		if !strings.HasPrefix(argument, "-") {
+			return argument, true
+		}
+	}
+	return "", false
+}
+
+func packageTargetPinned(target string) bool {
+	if strings.Contains(target, "==") {
+		return true
+	}
+	if strings.HasPrefix(target, "@") {
+		return strings.LastIndex(target, "@") > 0
+	}
+	return strings.Contains(target, "@")
+}
+
+func hasBroadFilesystemArgument(args []string) bool {
+	for _, argument := range args {
+		clean := filepath.Clean(argument)
+		if clean == string(filepath.Separator) || argument == "~" || argument == "$HOME" ||
+			(len(argument) == 3 && argument[1:] == ":\\") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasInlineCredentials(
+	endpoint string,
+	env,
+	headers map[string]json.RawMessage,
+) bool {
+	if parsed, err := url.Parse(endpoint); err == nil {
+		if parsed.User != nil {
+			return true
+		}
+		for key := range parsed.Query() {
+			if sensitiveName(key) {
+				return true
+			}
+		}
+	}
+	for key, value := range headers {
+		if sensitiveName(key) && rawLiteral(value) {
+			return true
+		}
+	}
+	for key, value := range env {
+		if sensitiveName(key) && rawLiteral(value) {
+			return true
+		}
+	}
+	return false
+}
+
+func rawLiteral(value json.RawMessage) bool {
+	var text string
+	if json.Unmarshal(value, &text) != nil || strings.TrimSpace(text) == "" {
+		return false
+	}
+	text = strings.TrimSpace(text)
+	return !(strings.HasPrefix(text, "${") || strings.HasPrefix(text, "$env:"))
+}
+
+func sensitiveNames(names []string) []string {
+	var result []string
+	for _, name := range names {
+		if sensitiveName(name) {
+			result = append(result, name)
+		}
+	}
+	return uniqueSorted(result)
+}
+
+func sensitiveName(name string) bool {
+	upper := strings.ToUpper(name)
+	for _, marker := range []string{"TOKEN", "SECRET", "PASSWORD", "PASSWD", "API_KEY", "PRIVATE_KEY", "AUTHORIZATION"} {
+		if strings.Contains(upper, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsString(values []string, candidate string) bool {
+	for _, value := range values {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func mapAsRaw[Value any](values map[string]Value) map[string]json.RawMessage {
+	result := make(map[string]json.RawMessage, len(values))
+	for key, value := range values {
+		encoded, _ := json.Marshal(value)
+		result[key] = encoded
+	}
+	return result
 }
 
 func validMCPTransport(server normalizedMCPServer) bool {

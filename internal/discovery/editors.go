@@ -47,6 +47,8 @@ type extensionManifest struct {
 	Contributes           map[string]json.RawMessage `json:"contributes"`
 	ExtensionDependencies []string                   `json:"extensionDependencies"`
 	ExtensionPack         []string                   `json:"extensionPack"`
+	Scripts               map[string]string          `json:"scripts"`
+	Dependencies          map[string]string          `json:"dependencies"`
 }
 
 func (adapter editorAdapter) Discover(ctx context.Context, options Options) Result {
@@ -338,7 +340,39 @@ func extensionMetadata(manifest extensionManifest) map[string]string {
 	if len(capabilities) != 0 {
 		metadata["capabilities"] = strings.Join(capabilities, ",")
 	}
+	if containsString(manifest.ActivationEvents, "*") {
+		metadata["risk_broad_activation"] = "true"
+	}
+	if scripts := selectedKeys(manifest.Scripts, []string{"preinstall", "install", "postinstall"}); len(scripts) != 0 {
+		metadata["risk_install_scripts"] = strings.Join(scripts, ",")
+	}
+	if dependencies := selectedKeys(manifest.Dependencies, []string{
+		"cross-spawn", "execa", "shelljs", "sudo-prompt",
+	}); len(dependencies) != 0 {
+		metadata["risk_process_dependencies"] = strings.Join(dependencies, ",")
+	}
+	if dependencies := selectedKeys(manifest.Dependencies, []string{
+		"axios", "got", "node-fetch", "request", "undici", "ws",
+	}); len(dependencies) != 0 {
+		metadata["risk_network_dependencies"] = strings.Join(dependencies, ",")
+	}
+	if dependencies := selectedKeys(manifest.Dependencies, []string{
+		"javascript-obfuscator", "js-confuser", "obfuscator-io",
+	}); len(dependencies) != 0 {
+		metadata["risk_obfuscation_dependencies"] = strings.Join(dependencies, ",")
+	}
 	return metadata
+}
+
+func selectedKeys(values map[string]string, selected []string) []string {
+	var result []string
+	for _, key := range selected {
+		if _, ok := values[key]; ok {
+			result = append(result, key)
+		}
+	}
+	sort.Strings(result)
+	return result
 }
 
 func isCommandUnavailable(err error) bool {

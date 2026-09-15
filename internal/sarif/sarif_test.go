@@ -41,7 +41,7 @@ func TestGenerateMapsFindingsToSARIF(t *testing.T) {
 	if driver.Name != "SourceWard" || driver.SemanticVersion != "0.1.0" {
 		t.Fatalf("unexpected driver %#v", driver)
 	}
-	if len(driver.Rules) != 5 || driver.Rules[0].ID != "SW001" {
+	if len(driver.Rules) != 16 || driver.Rules[0].ID != "SW001" {
 		t.Fatalf("rules are not deterministic: %#v", driver.Rules)
 	}
 	results := log.Runs[0].Results
@@ -126,7 +126,7 @@ func TestWriteProducesValidJSONForNoFindings(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &log); err != nil {
 		t.Fatal(err)
 	}
-	if log.Runs[0].Results == nil || len(log.Runs[0].Tool.Driver.Rules) != 5 {
+	if log.Runs[0].Results == nil || len(log.Runs[0].Tool.Driver.Rules) != 16 {
 		t.Fatal("empty SARIF collections must be encoded as arrays")
 	}
 }

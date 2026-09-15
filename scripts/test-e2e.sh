@@ -32,6 +32,12 @@ cat >"$extension/package.json" <<'EOF'
   "version": "1.2.3",
   "main": "./extension.js",
   "activationEvents": ["onStartupFinished"],
+  "scripts": {
+    "postinstall": "node setup.js"
+  },
+  "dependencies": {
+    "execa": "1.0.0"
+  },
   "contributes": {
     "commands": []
   }
@@ -79,6 +85,8 @@ grep -q '"provider": "visual-studio-code"' "$work_dir/discover.json"
 grep -q '"id": "visual-studio-code:example.safe-extension"' "$work_dir/discover.json"
 grep -q '"version": "1.2.3"' "$work_dir/discover.json"
 grep -q '"capabilities": "activation-events,contributes.commands,node-runtime"' "$work_dir/discover.json"
+grep -q '"risk_install_scripts": "postinstall"' "$work_dir/discover.json"
+grep -q '"risk_process_dependencies": "execa"' "$work_dir/discover.json"
 grep -q '"id": "mcp:portable-mcp:project:local-docs"' "$work_dir/discover.json"
 grep -q '"endpoint_host": "docs.example.invalid"' "$work_dir/discover.json"
 grep -q '"environment_variables": "DOCS_TOKEN"' "$work_dir/discover.json"
@@ -93,6 +101,11 @@ HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" audit \
 	--format json \
 	--fail-on none >"$work_dir/audit.json"
 grep -q '"rule_id": "SW001"' "$work_dir/audit.json"
+grep -q '"rule_id": "SW102"' "$work_dir/audit.json"
+grep -q '"rule_id": "SW103"' "$work_dir/audit.json"
+grep -q '"rule_id": "SW106"' "$work_dir/audit.json"
+grep -q '"rule_id": "SW202"' "$work_dir/audit.json"
+grep -q '"rule_id": "SW203"' "$work_dir/audit.json"
 
 if HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" audit \
 	--root "$fixture" \
@@ -111,7 +124,11 @@ HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" audit \
 	--fail-on none >"$work_dir/audit.sarif"
 grep -q '"version": "2.1.0"' "$work_dir/audit.sarif"
 grep -q '"ruleId": "SW001"' "$work_dir/audit.sarif"
+grep -q '"ruleId": "SW102"' "$work_dir/audit.sarif"
+grep -q '"ruleId": "SW202"' "$work_dir/audit.sarif"
+grep -q '"id": "SW205"' "$work_dir/audit.sarif"
 grep -q '"uri": ".github/skills/unsafe-install/SKILL.md"' "$work_dir/audit.sarif"
+grep -q '"uri": ".mcp.json"' "$work_dir/audit.sarif"
 
 lockfile="$fixture/sourceward.lock.json"
 HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
