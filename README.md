@@ -57,6 +57,20 @@ sourceward audit --format json
 `audit` exits unsuccessfully when it finds an issue at or above the configured
 threshold. The default threshold is `high`.
 
+Create a deterministic lockfile for project artifacts:
+
+```sh
+sourceward lock
+sourceward lock --check
+sourceward lock --output security/sourceward.lock.json
+```
+
+Lockfiles include project artifacts by default so they can be committed without
+capturing developer-machine state. Use `--include-personal` only for an
+explicitly local inventory. Content-backed artifacts receive a SHA-256 digest
+covering all files in the artifact directory; artifacts without locally
+addressable contents receive a metadata digest.
+
 ## Current scope
 
 This first release establishes the normalized artifact inventory and scanner

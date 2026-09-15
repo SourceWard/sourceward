@@ -52,3 +52,33 @@ fi
 
 grep -q 'SW001' "$work_dir/audit.txt"
 grep -q 'audit found issues at or above critical severity' "$work_dir/audit.err"
+
+lockfile="$fixture/sourceward.lock.json"
+HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
+	--root "$fixture" \
+	--output "$lockfile"
+grep -q '"schema_version": 1' "$lockfile"
+grep -q '"scope": "content"' "$lockfile"
+grep -q '"source": ".github/skills"' "$lockfile"
+
+cp "$lockfile" "$work_dir/sourceward.lock.first.json"
+HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
+	--root "$fixture" \
+	--output "$lockfile"
+cmp "$work_dir/sourceward.lock.first.json" "$lockfile"
+
+HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
+	--root "$fixture" \
+	--output "$lockfile" \
+	--check
+
+printf '\nChanged after locking.\n' >>"$fixture/.github/skills/unsafe-install/SKILL.md"
+if HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
+	--root "$fixture" \
+	--output "$lockfile" \
+	--check >"$work_dir/lock-check.txt" 2>"$work_dir/lock-check.err"
+then
+	echo "lock check unexpectedly succeeded after artifact drift" >&2
+	exit 1
+fi
+grep -q 'lockfile does not match discovered artifacts' "$work_dir/lock-check.err"

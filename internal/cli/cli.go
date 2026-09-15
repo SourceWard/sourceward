@@ -7,11 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/SourceWard/sourceward/internal/audit"
 	"github.com/SourceWard/sourceward/internal/discovery"
 	"github.com/SourceWard/sourceward/internal/inventory"
+	"github.com/SourceWard/sourceward/internal/lockfile"
 )
 
 const Version = "0.1.0-dev"
@@ -40,6 +42,8 @@ func (application Application) Run(args []string, stdout, stderr io.Writer) erro
 		return application.runDiscover(ctx, args[1:], stdout, stderr)
 	case "audit":
 		return application.runAudit(ctx, args[1:], stdout, stderr)
+	case "lock":
+		return application.runLock(ctx, args[1:], stdout, stderr)
 	case "version", "--version", "-v":
 		fmt.Fprintln(stdout, Version)
 		return nil
@@ -49,6 +53,57 @@ func (application Application) Run(args []string, stdout, stderr io.Writer) erro
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func (application Application) runLock(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("lock", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	root := flags.String("root", ".", "repository root to inspect")
+	output := flags.String("output", "", "lockfile path (default: ROOT/sourceward.lock.json)")
+	check := flags.Bool("check", false, "verify the lockfile instead of writing it")
+	includePersonal := flags.Bool("include-personal", false, "include personal skills and editor extensions")
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("lock does not accept positional arguments")
+	}
+	lockPath := resolveLockfilePath(*root, *output)
+
+	found, err := application.discover(ctx, discovery.Options{Root: *root})
+	if err != nil {
+		return err
+	}
+	locked, err := lockfile.Generate(found, lockfile.Options{
+		Root:            *root,
+		IncludePersonal: *includePersonal,
+	})
+	if err != nil {
+		return err
+	}
+
+	if *check {
+		if err := lockfile.Check(lockPath, locked); err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "Lockfile is current: %s\n", lockPath)
+		return nil
+	}
+	if err := lockfile.Write(lockPath, locked); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "Wrote %d artifacts to %s\n", len(locked.Artifacts), lockPath)
+	return nil
+}
+
+func resolveLockfilePath(root, output string) string {
+	if output != "" {
+		return output
+	}
+	return filepath.Join(root, "sourceward.lock.json")
 }
 
 func (application Application) runDiscover(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -185,5 +240,6 @@ func printHelp(writer io.Writer) {
 Usage:
   sourceward discover [--root PATH] [--format table|json]
   sourceward audit [--root PATH] [--format table|json] [--fail-on SEVERITY]
+  sourceward lock [--root PATH] [--output PATH] [--check] [--include-personal]
   sourceward version`)
 }

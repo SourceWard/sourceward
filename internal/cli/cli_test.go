@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -40,7 +41,7 @@ func TestHelpAndVersionCommands(t *testing.T) {
 }
 
 func TestSubcommandHelpReturnsSuccess(t *testing.T) {
-	for _, command := range []string{"discover", "audit"} {
+	for _, command := range []string{"discover", "audit", "lock"} {
 		t.Run(command, func(t *testing.T) {
 			var stderr bytes.Buffer
 			if err := testApplication(nil, nil).Run([]string{command, "--help"}, &bytes.Buffer{}, &stderr); err != nil {
@@ -150,6 +151,7 @@ func TestCommandValidation(t *testing.T) {
 		{name: "audit format", args: []string{"audit", "--format", "yaml"}, want: "format must be"},
 		{name: "audit threshold", args: []string{"audit", "--fail-on", "urgent"}, want: "fail-on must be"},
 		{name: "audit positional argument", args: []string{"audit", "extra"}, want: "positional"},
+		{name: "lock positional argument", args: []string{"lock", "extra"}, want: "positional"},
 	}
 
 	for _, test := range tests {
@@ -159,6 +161,43 @@ func TestCommandValidation(t *testing.T) {
 				t.Fatalf("got error %v, want one containing %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestLockWritesAndChecksFile(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "sourceward.lock.json")
+	found := inventory.Inventory{Artifacts: []inventory.Artifact{{
+		ID:      "visual-studio-code:github.copilot",
+		Name:    "github.copilot",
+		Kind:    "ide-extension",
+		Version: "1.0.0",
+		Scope:   "project",
+		Source:  "visual-studio-code",
+	}}}
+	application := testApplication(&found, nil)
+
+	if err := application.Run(
+		[]string{"lock", "--root", t.TempDir(), "--output", output},
+		&bytes.Buffer{},
+		&bytes.Buffer{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := application.Run(
+		[]string{"lock", "--root", t.TempDir(), "--output", output, "--check"},
+		&bytes.Buffer{},
+		&bytes.Buffer{},
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestResolveLockfilePath(t *testing.T) {
+	if got := resolveLockfilePath("/repo", ""); got != filepath.Join("/repo", "sourceward.lock.json") {
+		t.Fatalf("got %q", got)
+	}
+	if got := resolveLockfilePath("/repo", "custom.json"); got != "custom.json" {
+		t.Fatalf("got %q", got)
 	}
 }
 
