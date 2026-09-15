@@ -140,7 +140,29 @@ func (application Application) runDiscover(ctx context.Context, args []string, s
 		fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n",
 			artifact.Kind, artifact.Name, artifact.Version, artifact.Scope, artifact.Source)
 	}
-	return writer.Flush()
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	return writeDiagnostics(stderr, found.Diagnostics)
+}
+
+func writeDiagnostics(writer io.Writer, diagnostics []inventory.Diagnostic) error {
+	if len(diagnostics) == 0 {
+		return nil
+	}
+	table := tabwriter.NewWriter(writer, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(table, "\nDISCOVERY DIAGNOSTICS")
+	fmt.Fprintln(table, "LEVEL\tPROVIDER\tCODE\tPATH\tMESSAGE")
+	for _, diagnostic := range diagnostics {
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+			diagnostic.Level,
+			diagnostic.Provider,
+			diagnostic.Code,
+			diagnostic.Path,
+			diagnostic.Message,
+		)
+	}
+	return table.Flush()
 }
 
 func (application Application) runAudit(ctx context.Context, args []string, stdout, stderr io.Writer) error {
