@@ -1,0 +1,82 @@
+name: SourceWard Scan
+description: Scan Agent Skills, MCP servers, and IDE extensions with SourceWard
+inputs:
+  version:
+    description: SourceWard release tag
+    required: false
+    default: v0.1.0
+  root:
+    description: Repository root to scan
+    required: false
+    default: .
+  format:
+    description: Output format (table, json, or sarif)
+    required: false
+    default: sarif
+  fail-on:
+    description: Minimum finding severity
+    required: false
+    default: high
+  check-lock:
+    description: Compare against sourceward.lock.json
+    required: false
+    default: "false"
+  include-personal:
+    description: Include personal artifacts in lock comparison
+    required: false
+    default: "false"
+  upload-sarif:
+    description: Upload SARIF for same-repository events
+    required: false
+    default: "true"
+  sarif-file:
+    description: SARIF output path
+    required: false
+    default: sourceward.sarif
+outputs:
+  exit-code:
+    description: SourceWard process exit code
+    value: ${{ steps.scan.outputs.exit-code }}
+runs:
+  using: composite
+  steps:
+    - id: install
+      shell: bash
+      env:
+        SOURCEWARD_VERSION: ${{ inputs.version }}
+      run: |
+        binary="$("${{ github.action_path }}/scripts/install-release.sh" "$SOURCEWARD_VERSION" "$RUNNER_TEMP/sourceward")"
+        echo "binary=$binary" >> "$GITHUB_OUTPUT"
+    - id: scan
+      shell: bash
+      env:
+        SOURCEWARD_ROOT: ${{ inputs.root }}
+        SOURCEWARD_FORMAT: ${{ inputs.format }}
+        SOURCEWARD_FAIL_ON: ${{ inputs.fail-on }}
+        SOURCEWARD_CHECK_LOCK: ${{ inputs.check-lock }}
+        SOURCEWARD_INCLUDE_PERSONAL: ${{ inputs.include-personal }}
+        SOURCEWARD_SARIF_FILE: ${{ inputs.sarif-file }}
+      run: |
+        set +e
+        "${{ github.action_path }}/scripts/action-scan.sh" \
+          "${{ steps.install.outputs.binary }}" \
+          "$SOURCEWARD_ROOT" \
+          "$SOURCEWARD_FORMAT" \
+          "$SOURCEWARD_FAIL_ON" \
+          "$SOURCEWARD_CHECK_LOCK" \
+          "$SOURCEWARD_INCLUDE_PERSONAL" \
+          "$SOURCEWARD_SARIF_FILE"
+        status=$?
+        echo "exit-code=$status" >> "$GITHUB_OUTPUT"
+        exit 0
+    - name: Upload SARIF
+      if: inputs.upload-sarif == 'true' && inputs.format == 'sarif' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      uses: github/codeql-action/upload-sarif@311b4ee155dcdab395044f00946f664bd51ff173
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: sourceward
+    - name: Preserve SourceWard exit code
+      shell: bash
+      env:
+        SOURCEWARD_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: exit "$SOURCEWARD_EXIT_CODE"
