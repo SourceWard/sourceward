@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/SourceWard/sourceward/internal/inventory"
@@ -207,6 +208,57 @@ func TestExtensionIntegrityHashesContentsWithoutFollowingSymlinks(t *testing.T) 
 	}
 	if contentChanged.Artifacts[0].Integrity.Digest == originalDigest {
 		t.Fatal("extension content change did not affect integrity")
+	}
+}
+
+func TestLockfileIncludesPortableProvenance(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, ".github", "skills", "review")
+	skillPath := filepath.Join(skillDir, "SKILL.md")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(skillPath, []byte("# Review\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dirty := false
+	found := inventory.Inventory{Artifacts: []inventory.Artifact{{
+		ID:     "skill:review",
+		Name:   "review",
+		Kind:   "agent-skill",
+		Path:   skillPath,
+		Source: filepath.Dir(skillDir),
+		Scope:  "project",
+		Provenance: inventory.Provenance{
+			Kind:       "git",
+			Repository: "https://example.invalid/org/repository.git",
+			Revision:   "0123456789abcdef",
+			Dirty:      &dirty,
+			Subdir:     ".github/skills/review",
+		},
+	}}}
+
+	locked, err := Generate(found, Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if locked.SchemaVersion != 2 {
+		t.Fatalf("got schema version %d", locked.SchemaVersion)
+	}
+	provenance := locked.Artifacts[0].Provenance
+	if provenance.Repository != "https://example.invalid/org/repository.git" ||
+		provenance.Revision != "0123456789abcdef" ||
+		provenance.Dirty == nil ||
+		*provenance.Dirty ||
+		provenance.Subdir != ".github/skills/review" {
+		t.Fatalf("unexpected provenance %#v", provenance)
+	}
+	encoded, err := marshal(locked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), root) {
+		t.Fatalf("lockfile exposed local root: %s", encoded)
 	}
 }
 

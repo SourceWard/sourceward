@@ -26,7 +26,13 @@ location remains visible rather than being silently ignored.
 
 See [MCP discovery](mcp-discovery.md) for supported providers and secret
 handling. See [extension discovery](extension-discovery.md) for package
-inspection and reconciliation behavior.
+inspection and reconciliation behavior. See
+[artifact provenance](provenance.md) for source and revision normalization.
+
+After provider adapters return their artifacts, SourceWard enriches Agent
+Skills with local Git provenance when available. Provenance failure does not
+erase an artifact or imply trust; the artifact receives explicit `unknown`
+provenance instead.
 
 ## Diagnostics
 

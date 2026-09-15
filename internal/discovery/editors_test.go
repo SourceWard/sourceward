@@ -49,6 +49,12 @@ func TestEditorAdapterDiscoversInstalledPackageWithoutExecutingIt(t *testing.T) 
 	if artifact.Metadata["publisher"] != "acme" {
 		t.Fatalf("unexpected publisher metadata %#v", artifact.Metadata)
 	}
+	if artifact.Provenance.Kind != "marketplace" ||
+		artifact.Provenance.Provider != "visual-studio-code" ||
+		artifact.Provenance.Publisher != "acme" ||
+		artifact.Provenance.Package != "acme.tool" {
+		t.Fatalf("unexpected provenance %#v", artifact.Provenance)
+	}
 	wantCapabilities := "activation-events,contributes.commands,contributes.configuration,extension-dependencies,extension-pack,node-runtime,web-runtime"
 	if artifact.Metadata["capabilities"] != wantCapabilities {
 		t.Fatalf("got capabilities %q, want %q", artifact.Metadata["capabilities"], wantCapabilities)

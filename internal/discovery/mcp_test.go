@@ -71,6 +71,11 @@ func TestMCPAdapterDiscoversJSONProvidersWithoutSecretValues(t *testing.T) {
 	}
 
 	local := findArtifact(t, result, "mcp:visual-studio-code:project:local")
+	if local.Provenance.Kind != "configuration" ||
+		local.Provenance.Provider != "visual-studio-code" ||
+		local.Provenance.Package != "local" {
+		t.Fatalf("unexpected local provenance %#v", local.Provenance)
+	}
 	if local.Metadata["transport"] != "stdio" || local.Metadata["command"] != "npx" {
 		t.Fatalf("unexpected local metadata %#v", local.Metadata)
 	}

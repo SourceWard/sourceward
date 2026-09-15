@@ -13,6 +13,8 @@ The initial CLI discovers:
   Codex without exposing credential values.
 - Installed Visual Studio Code and Cursor extension packages, including
   versions, manifest capabilities, local paths, and content integrity.
+- Public, credential-free provenance for Git-backed skills, extension
+  publishers, and MCP configuration sources.
 
 It also performs deterministic baseline checks for dangerous skill behavior,
 including remote content piped to a shell, credential access, broad tool
@@ -56,7 +58,8 @@ diagnostics are written to standard error. See
 MCP-specific locations and privacy guarantees are documented in
 [MCP discovery](docs/mcp-discovery.md). Extension package locations and
 inspection guarantees are documented in
-[extension discovery](docs/extension-discovery.md).
+[extension discovery](docs/extension-discovery.md). Provenance fields and trust
+boundaries are documented in [artifact provenance](docs/provenance.md).
 
 Audit discovered skills:
 
@@ -89,13 +92,14 @@ Lockfiles include project artifacts by default so they can be committed without
 capturing developer-machine state. Use `--include-personal` only for an
 explicitly local inventory. Content-backed artifacts receive a SHA-256 digest
 covering all files in the artifact directory; artifacts without locally
-addressable contents receive a metadata digest.
+addressable contents receive a metadata digest. Lockfile schema version 2 adds
+portable structured provenance.
 
 ## Current scope
 
-This first release establishes the normalized artifact inventory and scanner
-interfaces. Planned artifact types include MCP servers, hooks, custom agents,
-IDE extensions, and agent-downloaded executables.
+This first release establishes normalized inventory, provenance, and scanner
+interfaces for Agent Skills, MCP servers, and IDE extensions. Planned artifact
+types include hooks, custom agents, and agent-downloaded executables.
 
 See [ROADMAP.md](ROADMAP.md) for product direction and the
 [MVP plan](docs/mvp-plan.md) for the ordered implementation backlog and release

@@ -117,7 +117,7 @@ lockfile="$fixture/sourceward.lock.json"
 HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
 	--root "$fixture" \
 	--output "$lockfile"
-grep -q '"schema_version": 1' "$lockfile"
+grep -q '"schema_version": 2' "$lockfile"
 grep -q '"scope": "content"' "$lockfile"
 grep -q '"source": ".github/skills"' "$lockfile"
 grep -q '"id": "mcp:portable-mcp:project:local-docs"' "$lockfile"
@@ -134,7 +134,7 @@ HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
 	--output "$personal_lockfile" \
 	--include-personal
 grep -q '"id": "visual-studio-code:example.safe-extension"' "$personal_lockfile"
-grep -A8 '"id": "visual-studio-code:example.safe-extension"' "$personal_lockfile" |
+grep -A16 '"id": "visual-studio-code:example.safe-extension"' "$personal_lockfile" |
 	grep -q '"scope": "content"'
 
 cp "$lockfile" "$work_dir/sourceward.lock.first.json"
