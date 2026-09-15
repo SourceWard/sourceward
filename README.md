@@ -52,10 +52,18 @@ Audit discovered skills:
 sourceward audit
 sourceward audit --fail-on medium
 sourceward audit --format json
+sourceward audit --format sarif > sourceward.sarif
 ```
 
 `audit` exits unsuccessfully when it finds an issue at or above the configured
 threshold. The default threshold is `high`.
+
+SARIF output is compatible with GitHub code scanning. Finding locations inside
+the selected repository root use repository-relative paths. Locations outside
+the repository, such as personal skills, are omitted from SARIF rather than
+exposing local filesystem paths.
+
+See [GitHub code scanning](docs/github-code-scanning.md) for a complete workflow.
 
 Create a deterministic lockfile for project artifacts:
 

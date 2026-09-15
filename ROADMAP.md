@@ -16,7 +16,7 @@ SourceWard is being built in narrow, verifiable layers.
 - Track source repositories and immutable revisions.
 - Compare newly installed versions with prior versions.
 - [x] Emit a SourceWard lockfile.
-- Export SARIF.
+- [x] Export SARIF.
 
 ## 0.3: MCP and organization policy
 
