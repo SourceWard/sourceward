@@ -11,7 +11,8 @@ The initial CLI discovers:
 - Skills configured through `COPILOT_SKILLS_DIRS`.
 - MCP servers configured for GitHub Copilot, VS Code, Cursor, Claude Code, and
   Codex without exposing credential values.
-- Installed Visual Studio Code and Cursor extensions, including versions.
+- Installed Visual Studio Code and Cursor extension packages, including
+  versions, manifest capabilities, local paths, and content integrity.
 
 It also performs deterministic baseline checks for dangerous skill behavior,
 including remote content piped to a shell, credential access, broad tool
@@ -53,7 +54,9 @@ malformed artifacts, and inaccessible configured locations. Human-readable
 diagnostics are written to standard error. See
 [artifact discovery](docs/discovery.md) for the adapter and diagnostic contract.
 MCP-specific locations and privacy guarantees are documented in
-[MCP discovery](docs/mcp-discovery.md).
+[MCP discovery](docs/mcp-discovery.md). Extension package locations and
+inspection guarantees are documented in
+[extension discovery](docs/extension-discovery.md).
 
 Audit discovered skills:
 

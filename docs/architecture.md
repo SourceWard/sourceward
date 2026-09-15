@@ -75,6 +75,11 @@ Credential-bearing provider configuration is reduced to sanitized metadata
 before it enters the inventory model. Lockfile integrity for those artifacts is
 calculated from that metadata, never from secret-bearing raw configuration.
 
+Installed extension manifests are parsed as data and extension code is never
+loaded. Package integrity walks the local package tree without following
+symlinks, so external targets cannot affect the digest or expand inspection
+outside the artifact root.
+
 ### Stable automation contract
 
 Human-readable output may evolve, but JSON field changes require compatibility
