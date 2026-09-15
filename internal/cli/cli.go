@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/SourceWard/sourceward/internal/audit"
 	"github.com/SourceWard/sourceward/internal/discovery"
 	"github.com/SourceWard/sourceward/internal/inventory"
 	"github.com/SourceWard/sourceward/internal/lockfile"
+	"github.com/SourceWard/sourceward/internal/sarif"
 )
 
 const Version = "0.1.0-dev"
@@ -120,7 +122,7 @@ func (application Application) runDiscover(ctx context.Context, args []string, s
 	if flags.NArg() != 0 {
 		return errors.New("discover does not accept positional arguments")
 	}
-	if err := validateFormat(*format); err != nil {
+	if err := validateFormat(*format, "table", "json"); err != nil {
 		return err
 	}
 
@@ -156,7 +158,7 @@ func (application Application) runAudit(ctx context.Context, args []string, stdo
 	if flags.NArg() != 0 {
 		return errors.New("audit does not accept positional arguments")
 	}
-	if err := validateFormat(*format); err != nil {
+	if err := validateFormat(*format, "table", "json", "sarif"); err != nil {
 		return err
 	}
 	if !validThreshold(*failOn) {
@@ -174,6 +176,10 @@ func (application Application) runAudit(ctx context.Context, args []string, stdo
 
 	if *format == "json" {
 		if err := writeJSON(stdout, map[string]any{"findings": findings}); err != nil {
+			return err
+		}
+	} else if *format == "sarif" {
+		if err := sarif.Write(stdout, findings, sarif.Options{Root: *root, ToolVersion: Version}); err != nil {
 			return err
 		}
 	} else if *format == "table" {
@@ -212,11 +218,13 @@ func shouldFail(findings []audit.Finding, threshold string) bool {
 	return false
 }
 
-func validateFormat(format string) error {
-	if format != "table" && format != "json" {
-		return errors.New("format must be table or json")
+func validateFormat(format string, allowed ...string) error {
+	for _, candidate := range allowed {
+		if format == candidate {
+			return nil
+		}
 	}
-	return nil
+	return fmt.Errorf("format must be %s", strings.Join(allowed, ", "))
 }
 
 func validThreshold(threshold string) bool {
@@ -239,7 +247,7 @@ func printHelp(writer io.Writer) {
 
 Usage:
   sourceward discover [--root PATH] [--format table|json]
-  sourceward audit [--root PATH] [--format table|json] [--fail-on SEVERITY]
+  sourceward audit [--root PATH] [--format table|json|sarif] [--fail-on SEVERITY]
   sourceward lock [--root PATH] [--output PATH] [--check] [--include-personal]
   sourceward version`)
 }

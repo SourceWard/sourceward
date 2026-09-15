@@ -53,6 +53,14 @@ fi
 grep -q 'SW001' "$work_dir/audit.txt"
 grep -q 'audit found issues at or above critical severity' "$work_dir/audit.err"
 
+HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" audit \
+	--root "$fixture" \
+	--format sarif \
+	--fail-on none >"$work_dir/audit.sarif"
+grep -q '"version": "2.1.0"' "$work_dir/audit.sarif"
+grep -q '"ruleId": "SW001"' "$work_dir/audit.sarif"
+grep -q '"uri": ".github/skills/unsafe-install/SKILL.md"' "$work_dir/audit.sarif"
+
 lockfile="$fixture/sourceward.lock.json"
 HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
 	--root "$fixture" \

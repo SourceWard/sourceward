@@ -20,44 +20,66 @@ type Finding struct {
 	Evidence    string `json:"evidence"`
 }
 
-type rule struct {
-	id          string
-	severity    string
-	description string
-	pattern     *regexp.Regexp
+type Rule struct {
+	ID          string `json:"id"`
+	Severity    string `json:"severity"`
+	Description string `json:"description"`
 }
 
-var rules = []rule{
+type compiledRule struct {
+	Rule
+	pattern *regexp.Regexp
+}
+
+var rules = []compiledRule{
 	{
-		id:          "SW001",
-		severity:    "critical",
-		description: "Remote content is piped directly to a shell",
-		pattern:     regexp.MustCompile(`(?i)(curl|wget)\b[^\n|]*\|\s*(ba)?sh\b`),
+		Rule: Rule{
+			ID:          "SW001",
+			Severity:    "critical",
+			Description: "Remote content is piped directly to a shell",
+		},
+		pattern: regexp.MustCompile(`(?i)(curl|wget)\b[^\n|]*\|\s*(ba)?sh\b`),
 	},
 	{
-		id:          "SW002",
-		severity:    "high",
-		description: "Skill references a sensitive credential location",
-		pattern:     regexp.MustCompile(`(?i)(~/|\$HOME/)?\.(ssh|aws|azure|kube|config/gh)\b`),
+		Rule: Rule{
+			ID:          "SW002",
+			Severity:    "high",
+			Description: "Skill references a sensitive credential location",
+		},
+		pattern: regexp.MustCompile(`(?i)(~/|\$HOME/)?\.(ssh|aws|azure|kube|config/gh)\b`),
 	},
 	{
-		id:          "SW003",
-		severity:    "high",
-		description: "Skill references a likely secret-bearing environment variable",
-		pattern:     regexp.MustCompile(`(?i)\b[A-Z][A-Z0-9_]*(TOKEN|SECRET|PASSWORD|PRIVATE_KEY)\b`),
+		Rule: Rule{
+			ID:          "SW003",
+			Severity:    "high",
+			Description: "Skill references a likely secret-bearing environment variable",
+		},
+		pattern: regexp.MustCompile(`(?i)\b[A-Z][A-Z0-9_]*(TOKEN|SECRET|PASSWORD|PRIVATE_KEY)\b`),
 	},
 	{
-		id:          "SW004",
-		severity:    "medium",
-		description: "Skill automatically allows every available tool",
-		pattern:     regexp.MustCompile(`(?im)^\s*allowed-tools\s*:\s*["']?\*["']?\s*$`),
+		Rule: Rule{
+			ID:          "SW004",
+			Severity:    "medium",
+			Description: "Skill automatically allows every available tool",
+		},
+		pattern: regexp.MustCompile(`(?im)^\s*allowed-tools\s*:\s*["']?\*["']?\s*$`),
 	},
 	{
-		id:          "SW005",
-		severity:    "medium",
-		description: "Skill contains hidden or bidirectional Unicode control characters",
-		pattern:     regexp.MustCompile("[\u200B\u200C\u200D\u202A-\u202E\u2066-\u2069\uFEFF]"),
+		Rule: Rule{
+			ID:          "SW005",
+			Severity:    "medium",
+			Description: "Skill contains hidden or bidirectional Unicode control characters",
+		},
+		pattern: regexp.MustCompile("[\u200B\u200C\u200D\u202A-\u202E\u2066-\u2069\uFEFF]"),
 	},
+}
+
+func Rules() []Rule {
+	catalog := make([]Rule, len(rules))
+	for index, candidate := range rules {
+		catalog[index] = candidate.Rule
+	}
+	return catalog
 }
 
 func Audit(found inventory.Inventory) ([]Finding, error) {
@@ -75,12 +97,12 @@ func Audit(found inventory.Inventory) ([]Finding, error) {
 				line := 1 + strings.Count(string(content[:location[0]]), "\n")
 				evidence := strings.TrimSpace(string(content[location[0]:location[1]]))
 				findings = append(findings, Finding{
-					RuleID:      candidate.id,
-					Severity:    candidate.severity,
+					RuleID:      candidate.ID,
+					Severity:    candidate.Severity,
 					ArtifactID:  artifact.ID,
 					Path:        artifact.Path,
 					Line:        line,
-					Description: candidate.description,
+					Description: candidate.Description,
 					Evidence:    evidence,
 				})
 			}
