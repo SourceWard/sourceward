@@ -71,6 +71,10 @@ one normalized inventory. Each provider integration is an adapter into that
 model. Independent adapter failures produce diagnostics and do not erase
 successful results from other providers.
 
+Credential-bearing provider configuration is reduced to sanitized metadata
+before it enters the inventory model. Lockfile integrity for those artifacts is
+calculated from that metadata, never from secret-bearing raw configuration.
+
 ### Stable automation contract
 
 Human-readable output may evolve, but JSON field changes require compatibility

@@ -94,6 +94,38 @@ func TestDiscoverWithAdaptersAddsProviderToDiagnostic(t *testing.T) {
 	}
 }
 
+func TestDiscoverWithAdaptersKeepsDistinctArtifactsSharingPath(t *testing.T) {
+	path := "/repo/.mcp.json"
+	found, err := DiscoverWithAdapters(context.Background(), Options{}, []Adapter{
+		staticAdapter{name: "mcp", result: Result{
+			Artifacts: []inventory.Artifact{
+				{
+					ID:     "mcp:portable-mcp:project:local",
+					Name:   "local",
+					Kind:   "mcp-server",
+					Path:   path,
+					Source: "portable-mcp",
+					Scope:  "project",
+				},
+				{
+					ID:     "mcp:portable-mcp:project:remote",
+					Name:   "remote",
+					Kind:   "mcp-server",
+					Path:   path,
+					Source: "portable-mcp",
+					Scope:  "project",
+				},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found.Artifacts) != 2 {
+		t.Fatalf("got %d artifacts, want 2: %#v", len(found.Artifacts), found.Artifacts)
+	}
+}
+
 func TestSkillAdapterDiscoversManifest(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join(root, ".github", "skills", "safe-review")

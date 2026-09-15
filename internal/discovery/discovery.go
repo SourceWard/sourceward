@@ -115,16 +115,18 @@ func defaultAdapters() []Adapter {
 	runner := execCommand
 	return []Adapter{
 		newSkillAdapter(),
+		newMCPAdapter(),
 		newEditorAdapter("visual-studio-code", "code", runner),
 		newEditorAdapter("cursor", "cursor", runner),
 	}
 }
 
 func artifactKey(artifact inventory.Artifact) string {
-	if artifact.Path != "" {
-		return artifact.Kind + "\x00" + artifact.Path
-	}
-	return artifact.Kind + "\x00" + artifact.ID + "\x00" + artifact.Scope + "\x00" + artifact.Source
+	return artifact.Kind + "\x00" +
+		artifact.ID + "\x00" +
+		artifact.Scope + "\x00" +
+		artifact.Source + "\x00" +
+		artifact.Path
 }
 
 func diagnosticKey(diagnostic inventory.Diagnostic) string {

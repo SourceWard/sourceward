@@ -20,10 +20,12 @@ location remains visible rather than being silently ignored.
 | Provider | Input |
 |---|---|
 | `agent-skills` | Project, personal, and `COPILOT_SKILLS_DIRS` skill directories |
+| `mcp` | Supported project, local, and personal MCP configuration files |
 | `visual-studio-code` | `code --list-extensions --show-versions` |
 | `cursor` | `cursor --list-extensions --show-versions` |
 
-Future MCP and extension-package discovery will implement the same adapter
+See [MCP discovery](mcp-discovery.md) for supported providers and secret
+handling. Future extension-package discovery will implement the same adapter
 contract.
 
 ## Diagnostics
@@ -66,6 +68,8 @@ suitable for artifact processing.
 | `artifact_unreadable` | A discovered skill manifest cannot be inspected or read |
 | `malformed_artifact` | A skill has an invalid local structure or unterminated frontmatter |
 | `malformed_output` | A provider command returned an extension without a usable name and version |
+| `malformed_configuration` | An MCP configuration file could not be parsed |
+| `unsupported_transport` | An MCP server does not declare exactly one supported command or URL |
 
 ## Privacy
 

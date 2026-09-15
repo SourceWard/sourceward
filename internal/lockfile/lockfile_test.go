@@ -93,6 +93,53 @@ func TestGenerateFiltersPersonalArtifactsAndSorts(t *testing.T) {
 	}
 }
 
+func TestMCPIntegrityExcludesSecretConfigurationValues(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, ".mcp.json")
+	if err := os.WriteFile(path, []byte(`{"mcpServers":{"test":{"env":{"TOKEN":"first"}}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	found := inventory.Inventory{Artifacts: []inventory.Artifact{{
+		ID:     "mcp:portable-mcp:project:test",
+		Name:   "test",
+		Kind:   "mcp-server",
+		Path:   path,
+		Source: "portable-mcp",
+		Scope:  "project",
+		Metadata: map[string]string{
+			"transport":             "stdio",
+			"environment_variables": "TOKEN",
+		},
+	}}}
+
+	first, err := Generate(found, Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"mcpServers":{"test":{"env":{"TOKEN":"second"}}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	second, err := Generate(found, Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Artifacts[0].Integrity.Scope != "metadata" {
+		t.Fatalf("got scope %q", first.Artifacts[0].Integrity.Scope)
+	}
+	if first.Artifacts[0].Integrity.Digest != second.Artifacts[0].Integrity.Digest {
+		t.Fatal("secret value changed MCP metadata integrity")
+	}
+
+	found.Artifacts[0].Metadata["command"] = "different"
+	changedMetadata, err := Generate(found, Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changedMetadata.Artifacts[0].Integrity.Digest == first.Artifacts[0].Integrity.Digest {
+		t.Fatal("sanitized MCP metadata change did not affect integrity")
+	}
+}
+
 func TestContentDigestTracksOnlyExecutablePermission(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "SKILL.md")

@@ -159,7 +159,7 @@ func marshal(locked Lockfile) ([]byte, error) {
 }
 
 func artifactIntegrity(artifact inventory.Artifact, locked Artifact) (Integrity, error) {
-	if artifact.Path != "" {
+	if contentBacked(artifact) {
 		path := artifact.Path
 		if artifact.Kind == "agent-skill" {
 			path = filepath.Dir(path)
@@ -172,19 +172,21 @@ func artifactIntegrity(artifact inventory.Artifact, locked Artifact) (Integrity,
 	}
 
 	content, err := json.Marshal(struct {
-		ID      string `json:"id"`
-		Name    string `json:"name"`
-		Kind    string `json:"kind"`
-		Version string `json:"version"`
-		Source  string `json:"source"`
-		Scope   string `json:"scope"`
+		ID       string            `json:"id"`
+		Name     string            `json:"name"`
+		Kind     string            `json:"kind"`
+		Version  string            `json:"version"`
+		Source   string            `json:"source"`
+		Scope    string            `json:"scope"`
+		Metadata map[string]string `json:"metadata,omitempty"`
 	}{
-		ID:      locked.ID,
-		Name:    locked.Name,
-		Kind:    locked.Kind,
-		Version: locked.Version,
-		Source:  locked.Source,
-		Scope:   locked.Scope,
+		ID:       locked.ID,
+		Name:     locked.Name,
+		Kind:     locked.Kind,
+		Version:  locked.Version,
+		Source:   locked.Source,
+		Scope:    locked.Scope,
+		Metadata: artifact.Metadata,
 	})
 	if err != nil {
 		return Integrity{}, fmt.Errorf("encode artifact metadata: %w", err)
@@ -195,6 +197,11 @@ func artifactIntegrity(artifact inventory.Artifact, locked Artifact) (Integrity,
 		Algorithm: "sha256",
 		Digest:    hex.EncodeToString(sum[:]),
 	}, nil
+}
+
+func contentBacked(artifact inventory.Artifact) bool {
+	return artifact.Path != "" &&
+		(artifact.Kind == "agent-skill" || artifact.Kind == "ide-extension")
 }
 
 func hashPath(root string) (string, error) {
