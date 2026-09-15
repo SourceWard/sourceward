@@ -80,6 +80,12 @@ loaded. Package integrity walks the local package tree without following
 symlinks, so external targets cannot affect the digest or expand inspection
 outside the artifact root.
 
+Provenance is structured separately from artifact metadata. Git-backed skills
+record a sanitized public remote, immutable revision, artifact-relative
+subdirectory, and artifact-scoped dirty state. Other providers identify the
+marketplace or configuration source they expose; unavailable provenance is
+represented explicitly as `unknown`.
+
 ### Stable automation contract
 
 Human-readable output may evolve, but JSON field changes require compatibility
