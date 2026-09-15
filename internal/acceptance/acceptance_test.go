@@ -21,7 +21,7 @@ func TestMVPWorkflows(t *testing.T) {
 	runBuild(t, root, binary)
 
 	version, _, code := runCLI(t, binary, work, nil, "version")
-	if code != 0 || strings.TrimSpace(version) != "0.1.1" {
+	if code != 0 || strings.TrimSpace(version) != "0.1.2" {
 		t.Fatalf("first run failed: code=%d output=%q", code, version)
 	}
 

@@ -5,7 +5,7 @@
 SourceWard is a local-first inventory and security tool for the capabilities
 developers and AI agents install and execute.
 
-Version 0.1.1 is the current end-to-end MVP release. Its complete safe and unsafe
+Version 0.1.2 is the current end-to-end MVP release. Its complete safe and unsafe
 repository promise is exercised on Linux, macOS, and Windows; see
 [MVP acceptance](docs/acceptance.md).
 

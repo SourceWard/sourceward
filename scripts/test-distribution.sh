@@ -6,20 +6,24 @@ repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT HUP INT TERM
 
-version=v0.1.0-test
-for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
-do
-	os=${target%/*}
-	arch=${target#*/}
-	suffix=
-	if [ "$os" = windows ]; then suffix=.exe; fi
-	output="$work_dir/sourceward_${version#v}_${os}_${arch}${suffix}"
-	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build \
-		-trimpath \
-		-ldflags="-X github.com/SourceWard/sourceward/internal/cli.Version=$version" \
-		-o "$output" "$repo_root/cmd/sourceward"
-	test -s "$output"
-done
+version=0.1.2-test
+"$repo_root/scripts/build-release.sh" "v$version" "$work_dir/release"
+test "$(find "$work_dir/release" -type f -name 'sourceward_*' | wc -l | tr -d ' ')" -eq 6
+test "$(wc -l <"$work_dir/release/checksums.txt" | tr -d ' ')" -eq 6
+
+case "$(uname -s)" in
+	Linux*) native_os=linux ;;
+	Darwin*) native_os=darwin ;;
+	*) native_os= ;;
+esac
+case "$(uname -m)" in
+	x86_64|amd64) native_arch=amd64 ;;
+	arm64|aarch64) native_arch=arm64 ;;
+	*) native_arch= ;;
+esac
+if [ -n "$native_os" ] && [ -n "$native_arch" ]; then
+	test "$("$work_dir/release/sourceward_${version}_${native_os}_${native_arch}" version)" = "$version"
+fi
 
 capture="$work_dir/arguments"
 fake="$work_dir/sourceward"
@@ -82,21 +86,21 @@ EOF
 cat >"$tools/sha256sum" <<'EOF'
 #!/bin/sh
 cat >/dev/null
-printf '%s\n' "sourceward_0.1.1_darwin_arm64: OK"
+printf '%s\n' "sourceward_0.1.2_darwin_arm64: OK"
 EOF
 chmod +x "$tools/uname" "$tools/curl" "$tools/sha256sum"
-cat >"$fixtures/sourceward_0.1.1_darwin_arm64" <<'EOF'
+cat >"$fixtures/sourceward_0.1.2_darwin_arm64" <<'EOF'
 #!/bin/sh
 exit 0
 EOF
-printf '%s\n' "fixture  sourceward_0.1.1_darwin_arm64" >"$fixtures/checksums.txt"
+printf '%s\n' "fixture  sourceward_0.1.2_darwin_arm64" >"$fixtures/checksums.txt"
 
 SOURCEWARD_DOWNLOAD_FIXTURES="$fixtures" PATH="$tools:$PATH" \
-	"$repo_root/scripts/install-release.sh" v0.1.1 "$work_dir/install" \
+	"$repo_root/scripts/install-release.sh" v0.1.2 "$work_dir/install" \
 	>"$work_dir/install.out" 2>"$work_dir/install.err"
-test "$(cat "$work_dir/install.out")" = "$work_dir/install/sourceward_0.1.1_darwin_arm64"
-grep -q "sourceward_0.1.1_darwin_arm64: OK" "$work_dir/install.err"
-test -x "$work_dir/install/sourceward_0.1.1_darwin_arm64"
+test "$(cat "$work_dir/install.out")" = "$work_dir/install/sourceward_0.1.2_darwin_arm64"
+grep -q "sourceward_0.1.2_darwin_arm64: OK" "$work_dir/install.err"
+test -x "$work_dir/install/sourceward_0.1.2_darwin_arm64"
 
 if grep -REn 'uses: [^ ]+@v[0-9]' "$repo_root/.github/workflows" "$repo_root/action.yml"
 then
