@@ -43,7 +43,8 @@ func TestEditorAdapterDiscoversInstalledPackageWithoutExecutingIt(t *testing.T) 
 	if artifact.ID != "visual-studio-code:acme.tool" ||
 		artifact.Name != "acme.tool" ||
 		artifact.Version != "1.2.3" ||
-		artifact.Path != packagePath {
+		artifact.Path != "~/.vscode/extensions/acme.tool-1.2.3" ||
+		artifact.LocalPath != packagePath {
 		t.Fatalf("unexpected artifact %#v", artifact)
 	}
 	if artifact.Metadata["publisher"] != "acme" {

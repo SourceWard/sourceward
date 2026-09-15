@@ -146,7 +146,11 @@ func Generate(findings []audit.Finding, options Options) (Log, error) {
 				SourceWardSeverity: finding.Severity,
 			},
 		}
-		if uri, ok := repositoryURI(root, finding.Path); ok {
+		locationPath := finding.Path
+		if finding.LocalPath != "" {
+			locationPath = finding.LocalPath
+		}
+		if uri, ok := repositoryURI(root, locationPath); ok {
 			result.Locations = []Location{{
 				PhysicalLocation: PhysicalLocation{
 					ArtifactLocation: ArtifactLocation{URI: uri},

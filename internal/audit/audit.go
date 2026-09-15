@@ -16,6 +16,7 @@ type Finding struct {
 	Severity    string `json:"severity"`
 	ArtifactID  string `json:"artifact_id"`
 	Path        string `json:"path"`
+	LocalPath   string `json:"-"`
 	Line        int    `json:"line"`
 	Description string `json:"description"`
 	Evidence    string `json:"evidence"`
@@ -136,14 +137,21 @@ func Audit(found inventory.Inventory) ([]Finding, error) {
 				continue
 			}
 			path := artifact.Path
-			if artifact.Kind == "ide-extension" && path != "" {
-				path = filepath.Join(path, "package.json")
+			localPath := artifact.LocalPath
+			if artifact.Kind == "ide-extension" {
+				if path != "" {
+					path = filepath.Join(path, "package.json")
+				}
+				if localPath != "" {
+					localPath = filepath.Join(localPath, "package.json")
+				}
 			}
 			findings = append(findings, Finding{
 				RuleID:      candidate.ID,
 				Severity:    candidate.Severity,
 				ArtifactID:  artifact.ID,
 				Path:        path,
+				LocalPath:   localPath,
 				Line:        1,
 				Description: candidate.Description,
 				Evidence:    evidence,
