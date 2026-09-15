@@ -83,6 +83,11 @@ exposing local filesystem paths.
 
 See [GitHub code scanning](docs/github-code-scanning.md) for a complete workflow.
 
+Repositories can define enforcement in a strict, versioned `sourceward.yaml`,
+including thresholds, approved sources and publishers, allowed artifact types,
+denied rules, required lockfiles, and exact evidence-bound exceptions. See
+[repository policy](docs/policy.md).
+
 Create a deterministic lockfile for project artifacts:
 
 ```sh
