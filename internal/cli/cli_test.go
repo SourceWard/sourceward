@@ -192,6 +192,15 @@ func TestLockWritesAndChecksFile(t *testing.T) {
 	}
 }
 
+func TestResolveLockfilePath(t *testing.T) {
+	if got := resolveLockfilePath("/repo", ""); got != filepath.Join("/repo", "sourceward.lock.json") {
+		t.Fatalf("got %q", got)
+	}
+	if got := resolveLockfilePath("/repo", "custom.json"); got != "custom.json" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestDiscoveryErrorIsReturned(t *testing.T) {
 	expected := errors.New("discovery failed")
 	application := New()

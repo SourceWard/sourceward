@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/SourceWard/sourceward/internal/audit"
@@ -58,7 +59,7 @@ func (application Application) runLock(ctx context.Context, args []string, stdou
 	flags := flag.NewFlagSet("lock", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository root to inspect")
-	output := flags.String("output", "sourceward.lock.json", "lockfile path")
+	output := flags.String("output", "", "lockfile path (default: ROOT/sourceward.lock.json)")
 	check := flags.Bool("check", false, "verify the lockfile instead of writing it")
 	includePersonal := flags.Bool("include-personal", false, "include personal skills and editor extensions")
 	if err := flags.Parse(args); err != nil {
@@ -70,6 +71,7 @@ func (application Application) runLock(ctx context.Context, args []string, stdou
 	if flags.NArg() != 0 {
 		return errors.New("lock does not accept positional arguments")
 	}
+	lockPath := resolveLockfilePath(*root, *output)
 
 	found, err := application.discover(ctx, discovery.Options{Root: *root})
 	if err != nil {
@@ -84,17 +86,24 @@ func (application Application) runLock(ctx context.Context, args []string, stdou
 	}
 
 	if *check {
-		if err := lockfile.Check(*output, locked); err != nil {
+		if err := lockfile.Check(lockPath, locked); err != nil {
 			return err
 		}
-		fmt.Fprintf(stdout, "Lockfile is current: %s\n", *output)
+		fmt.Fprintf(stdout, "Lockfile is current: %s\n", lockPath)
 		return nil
 	}
-	if err := lockfile.Write(*output, locked); err != nil {
+	if err := lockfile.Write(lockPath, locked); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "Wrote %d artifacts to %s\n", len(locked.Artifacts), *output)
+	fmt.Fprintf(stdout, "Wrote %d artifacts to %s\n", len(locked.Artifacts), lockPath)
 	return nil
+}
+
+func resolveLockfilePath(root, output string) string {
+	if output != "" {
+		return output
+	}
+	return filepath.Join(root, "sourceward.lock.json")
 }
 
 func (application Application) runDiscover(ctx context.Context, args []string, stdout, stderr io.Writer) error {
