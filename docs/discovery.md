@@ -21,12 +21,12 @@ location remains visible rather than being silently ignored.
 |---|---|
 | `agent-skills` | Project, personal, and `COPILOT_SKILLS_DIRS` skill directories |
 | `mcp` | Supported project, local, and personal MCP configuration files |
-| `visual-studio-code` | `code --list-extensions --show-versions` |
-| `cursor` | `cursor --list-extensions --show-versions` |
+| `visual-studio-code` | CLI inventory plus installed packages under `~/.vscode/extensions` |
+| `cursor` | CLI inventory plus installed packages under `~/.cursor/extensions` |
 
 See [MCP discovery](mcp-discovery.md) for supported providers and secret
-handling. Future extension-package discovery will implement the same adapter
-contract.
+handling. See [extension discovery](extension-discovery.md) for package
+inspection and reconciliation behavior.
 
 ## Diagnostics
 
@@ -70,6 +70,7 @@ suitable for artifact processing.
 | `malformed_output` | A provider command returned an extension without a usable name and version |
 | `malformed_configuration` | An MCP configuration file could not be parsed |
 | `unsupported_transport` | An MCP server does not declare exactly one supported command or URL |
+| `extension_inventory_mismatch` | Editor CLI and installed package inventory disagree |
 
 ## Privacy
 

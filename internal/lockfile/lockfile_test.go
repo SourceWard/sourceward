@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/SourceWard/sourceward/internal/inventory"
@@ -137,6 +138,75 @@ func TestMCPIntegrityExcludesSecretConfigurationValues(t *testing.T) {
 	}
 	if changedMetadata.Artifacts[0].Integrity.Digest == first.Artifacts[0].Integrity.Digest {
 		t.Fatal("sanitized MCP metadata change did not affect integrity")
+	}
+}
+
+func TestExtensionIntegrityHashesContentsWithoutFollowingSymlinks(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation may require elevated Windows privileges")
+	}
+	root := t.TempDir()
+	extensionDir := filepath.Join(root, ".vscode", "extensions", "acme.tool-1.0.0")
+	if err := os.MkdirAll(extensionDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(extensionDir, "package.json")
+	if err := os.WriteFile(manifestPath, []byte(`{"publisher":"acme","name":"tool","version":"1.0.0"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	externalPath := filepath.Join(t.TempDir(), "outside.js")
+	if err := os.WriteFile(externalPath, []byte("first"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(externalPath, filepath.Join(extensionDir, "outside.js")); err != nil {
+		t.Fatal(err)
+	}
+	found := inventory.Inventory{Artifacts: []inventory.Artifact{{
+		ID:      "visual-studio-code:acme.tool",
+		Name:    "acme.tool",
+		Kind:    "ide-extension",
+		Version: "1.0.0",
+		Path:    extensionDir,
+		Source:  "visual-studio-code",
+		Scope:   "personal",
+	}}}
+
+	first, err := Generate(found, Options{Root: root, IncludePersonal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := Generate(found, Options{Root: root, IncludePersonal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("extension integrity is not stable:\n%#v\n%#v", first, second)
+	}
+	if first.Artifacts[0].Integrity.Scope != "content" {
+		t.Fatalf("got integrity scope %q", first.Artifacts[0].Integrity.Scope)
+	}
+
+	originalDigest := first.Artifacts[0].Integrity.Digest
+	if err := os.WriteFile(externalPath, []byte("second"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	externalChanged, err := Generate(found, Options{Root: root, IncludePersonal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if externalChanged.Artifacts[0].Integrity.Digest != originalDigest {
+		t.Fatal("extension integrity followed symlink outside package")
+	}
+
+	if err := os.WriteFile(manifestPath, []byte(`{"publisher":"acme","name":"tool","version":"1.0.1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	contentChanged, err := Generate(found, Options{Root: root, IncludePersonal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contentChanged.Artifacts[0].Integrity.Digest == originalDigest {
+		t.Fatal("extension content change did not affect integrity")
 	}
 }
 
