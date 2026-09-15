@@ -31,6 +31,7 @@ jobs:
       - name: Generate SARIF
         run: sourceward audit --format sarif --fail-on none > sourceward.sarif
       - name: Upload SARIF
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: sourceward.sarif
@@ -47,3 +48,6 @@ sourceward audit --fail-on high
 SARIF locations are emitted only for files inside `--root`. Findings in
 personal skills remain in the report but omit filesystem locations so uploaded
 results do not reveal home-directory paths.
+
+The upload condition skips fork pull requests because their `GITHUB_TOKEN`
+cannot receive `security-events: write`. SARIF generation still runs normally.
