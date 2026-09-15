@@ -3,6 +3,7 @@ package audit
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -31,7 +32,13 @@ type compiledRule struct {
 	pattern *regexp.Regexp
 }
 
-var rules = []compiledRule{
+type artifactRule struct {
+	Rule
+	kind        string
+	metadataKey string
+}
+
+var skillRules = []compiledRule{
 	{
 		Rule: Rule{
 			ID:          "SW001",
@@ -74,10 +81,27 @@ var rules = []compiledRule{
 	},
 }
 
+var artifactRules = []artifactRule{
+	{Rule: Rule{ID: "SW101", Severity: "high", Description: "MCP server launches through a command shell"}, kind: "mcp-server", metadataKey: "risk_shell_execution"},
+	{Rule: Rule{ID: "SW102", Severity: "high", Description: "MCP server executes a package without an immutable version"}, kind: "mcp-server", metadataKey: "risk_unpinned_package"},
+	{Rule: Rule{ID: "SW103", Severity: "high", Description: "MCP configuration contains an inline credential value"}, kind: "mcp-server", metadataKey: "risk_inline_credentials"},
+	{Rule: Rule{ID: "SW104", Severity: "medium", Description: "MCP server requests a broad filesystem root"}, kind: "mcp-server", metadataKey: "risk_broad_filesystem"},
+	{Rule: Rule{ID: "SW105", Severity: "high", Description: "Remote MCP server uses unencrypted HTTP transport"}, kind: "mcp-server", metadataKey: "risk_insecure_transport"},
+	{Rule: Rule{ID: "SW106", Severity: "medium", Description: "MCP server receives likely sensitive environment variables"}, kind: "mcp-server", metadataKey: "risk_sensitive_environment"},
+	{Rule: Rule{ID: "SW201", Severity: "medium", Description: "Extension activates for every workspace event"}, kind: "ide-extension", metadataKey: "risk_broad_activation"},
+	{Rule: Rule{ID: "SW202", Severity: "high", Description: "Extension package declares an installation lifecycle script"}, kind: "ide-extension", metadataKey: "risk_install_scripts"},
+	{Rule: Rule{ID: "SW203", Severity: "medium", Description: "Extension depends on a process-execution package"}, kind: "ide-extension", metadataKey: "risk_process_dependencies"},
+	{Rule: Rule{ID: "SW204", Severity: "medium", Description: "Extension depends on a network-capable package"}, kind: "ide-extension", metadataKey: "risk_network_dependencies"},
+	{Rule: Rule{ID: "SW205", Severity: "medium", Description: "Extension depends on a code-obfuscation package"}, kind: "ide-extension", metadataKey: "risk_obfuscation_dependencies"},
+}
+
 func Rules() []Rule {
-	catalog := make([]Rule, len(rules))
-	for index, candidate := range rules {
-		catalog[index] = candidate.Rule
+	catalog := make([]Rule, 0, len(skillRules)+len(artifactRules))
+	for _, candidate := range skillRules {
+		catalog = append(catalog, candidate.Rule)
+	}
+	for _, candidate := range artifactRules {
+		catalog = append(catalog, candidate.Rule)
 	}
 	return catalog
 }
@@ -85,27 +109,45 @@ func Rules() []Rule {
 func Audit(found inventory.Inventory) ([]Finding, error) {
 	var findings []Finding
 	for _, artifact := range found.Artifacts {
-		if artifact.Kind != "agent-skill" || artifact.Path == "" {
-			continue
-		}
-		content, err := os.ReadFile(artifact.Path)
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", artifact.Path, err)
-		}
-		for _, candidate := range rules {
-			for _, location := range candidate.pattern.FindAllIndex(content, -1) {
-				line := 1 + strings.Count(string(content[:location[0]]), "\n")
-				evidence := strings.TrimSpace(string(content[location[0]:location[1]]))
-				findings = append(findings, Finding{
-					RuleID:      candidate.ID,
-					Severity:    candidate.Severity,
-					ArtifactID:  artifact.ID,
-					Path:        artifact.Path,
-					Line:        line,
-					Description: candidate.Description,
-					Evidence:    evidence,
-				})
+		if artifact.Kind == "agent-skill" && artifact.Path != "" {
+			content, err := os.ReadFile(artifact.Path)
+			if err != nil {
+				return nil, fmt.Errorf("read %s: %w", artifact.Path, err)
 			}
+			for _, candidate := range skillRules {
+				for _, location := range candidate.pattern.FindAllIndex(content, -1) {
+					line := 1 + strings.Count(string(content[:location[0]]), "\n")
+					evidence := strings.TrimSpace(string(content[location[0]:location[1]]))
+					findings = append(findings, Finding{
+						RuleID:      candidate.ID,
+						Severity:    candidate.Severity,
+						ArtifactID:  artifact.ID,
+						Path:        artifact.Path,
+						Line:        line,
+						Description: candidate.Description,
+						Evidence:    evidence,
+					})
+				}
+			}
+		}
+		for _, candidate := range artifactRules {
+			evidence, ok := artifact.Metadata[candidate.metadataKey]
+			if artifact.Kind != candidate.kind || !ok || evidence == "" || evidence == "false" {
+				continue
+			}
+			path := artifact.Path
+			if artifact.Kind == "ide-extension" && path != "" {
+				path = filepath.Join(path, "package.json")
+			}
+			findings = append(findings, Finding{
+				RuleID:      candidate.ID,
+				Severity:    candidate.Severity,
+				ArtifactID:  artifact.ID,
+				Path:        path,
+				Line:        1,
+				Description: candidate.Description,
+				Evidence:    evidence,
+			})
 		}
 	}
 	sort.Slice(findings, func(i, j int) bool {

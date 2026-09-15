@@ -116,10 +116,12 @@ env_http_headers = { "X-API-Key" = "API_KEY_ENV" }
 	if len(result.Artifacts) != 2 {
 		t.Fatalf("got %d artifacts, want 2: %#v", len(result.Artifacts), result.Artifacts)
 	}
+
 	encoded, err := json.Marshal(result)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	output := string(encoded)
 	for _, secret := range []string{
 		"argument-secret",
@@ -150,6 +152,51 @@ env_http_headers = { "X-API-Key" = "API_KEY_ENV" }
 	}
 	if remote.Metadata["header_names"] != "Authorization,X-API-Key" {
 		t.Fatalf("unexpected header metadata %#v", remote.Metadata)
+	}
+}
+
+func TestMCPRiskSignalsAreDerivedWithoutValues(t *testing.T) {
+	signals := mcpRiskSignals(
+		"bash",
+		[]string{"-c", "npx package-name", "/"},
+		"http://remote.example.invalid/mcp?token=value",
+		map[string]json.RawMessage{"API_TOKEN": json.RawMessage(`"literal-value"`)},
+		map[string]json.RawMessage{"Authorization": json.RawMessage(`"literal-value"`)},
+	)
+	for _, key := range []string{
+		"risk_shell_execution",
+		"risk_inline_credentials",
+		"risk_broad_filesystem",
+		"risk_insecure_transport",
+		"risk_sensitive_environment",
+	} {
+		if signals[key] == "" {
+			t.Fatalf("missing signal %q in %#v", key, signals)
+		}
+	}
+	encoded, err := json.Marshal(signals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "literal-value") {
+		t.Fatalf("credential value leaked in %#v", signals)
+	}
+
+	unpinned := mcpRiskSignals("npx", []string{"package-name"}, "", nil, nil)
+	if unpinned["risk_unpinned_package"] != "true" {
+		t.Fatalf("missing unpinned signal %#v", unpinned)
+	}
+	safe := mcpRiskSignals(
+		"npx",
+		[]string{"package-name@1.2.3"},
+		"http://localhost:3000/mcp",
+		map[string]json.RawMessage{"API_TOKEN": json.RawMessage(`"${API_TOKEN}"`)},
+		nil,
+	)
+	if safe["risk_unpinned_package"] != "" ||
+		safe["risk_insecure_transport"] != "" ||
+		safe["risk_inline_credentials"] != "" {
+		t.Fatalf("unexpected safe signals %#v", safe)
 	}
 }
 

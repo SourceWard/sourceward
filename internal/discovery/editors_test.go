@@ -76,14 +76,54 @@ func TestEditorAdapterReportsCLIAndPackageMismatch(t *testing.T) {
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
 		return []byte("acme.tool@2.0.0\ncli.only@3.0.0\n"), nil
 	}
+
 	result := newEditorAdapter("cursor", "cursor", runner).
 		Discover(context.Background(), Options{Root: t.TempDir(), Home: home})
 
 	if len(result.Artifacts) != 2 {
 		t.Fatalf("got %d artifacts, want 2: %#v", len(result.Artifacts), result.Artifacts)
 	}
+
 	if got := countDiagnostics(result, "extension_inventory_mismatch"); got != 2 {
 		t.Fatalf("got %d mismatch diagnostics, want 2: %#v", got, result.Diagnostics)
+	}
+}
+
+func TestExtensionManifestDerivesRiskSignals(t *testing.T) {
+	metadata := extensionMetadata(extensionManifest{
+		ActivationEvents: []string{"*"},
+		Scripts: map[string]string{
+			"postinstall": "node setup.js",
+			"test":        "go test",
+		},
+		Dependencies: map[string]string{
+			"execa":                 "1.0.0",
+			"undici":                "1.0.0",
+			"javascript-obfuscator": "1.0.0",
+			"safe-package":          "1.0.0",
+		},
+	})
+	want := map[string]string{
+		"risk_broad_activation":         "true",
+		"risk_install_scripts":          "postinstall",
+		"risk_process_dependencies":     "execa",
+		"risk_network_dependencies":     "undici",
+		"risk_obfuscation_dependencies": "javascript-obfuscator",
+	}
+	for key, value := range want {
+		if metadata[key] != value {
+			t.Fatalf("metadata[%q] = %q, want %q: %#v", key, metadata[key], value, metadata)
+		}
+	}
+	safe := extensionMetadata(extensionManifest{
+		ActivationEvents: []string{"onCommand:example.safe"},
+		Scripts:          map[string]string{"test": "go test"},
+		Dependencies:     map[string]string{"safe-package": "1.0.0"},
+	})
+	for key := range want {
+		if safe[key] != "" {
+			t.Fatalf("unexpected safe signal %q in %#v", key, safe)
+		}
 	}
 }
 
