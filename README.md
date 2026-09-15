@@ -44,6 +44,9 @@ make build
 ./bin/sourceward discover
 ```
 
+Versioned binaries and the reusable GitHub Action are documented in
+[GitHub Action and releases](docs/github-action.md).
+
 ## Usage
 
 Run the complete repository workflow:
