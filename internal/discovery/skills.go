@@ -12,6 +12,7 @@ import (
 
 type fileSystem interface {
 	ReadDir(string) ([]os.DirEntry, error)
+	Lstat(string) (os.FileInfo, error)
 	Stat(string) (os.FileInfo, error)
 	ReadFile(string) ([]byte, error)
 }
@@ -20,6 +21,10 @@ type osFileSystem struct{}
 
 func (osFileSystem) ReadDir(path string) ([]os.DirEntry, error) {
 	return os.ReadDir(path)
+}
+
+func (osFileSystem) Lstat(path string) (os.FileInfo, error) {
+	return os.Lstat(path)
 }
 
 func (osFileSystem) Stat(path string) (os.FileInfo, error) {
