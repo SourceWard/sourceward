@@ -50,6 +50,8 @@ func (application Application) Run(args []string, stdout, stderr io.Writer) erro
 		return application.runLock(ctx, args[1:], stdout, stderr)
 	case "diff":
 		return application.runDiff(ctx, args[1:], stdout, stderr)
+	case "scan":
+		return application.runScan(ctx, args[1:], stdout, stderr)
 	case "version", "--version", "-v":
 		fmt.Fprintln(stdout, Version)
 		return nil
@@ -57,7 +59,7 @@ func (application Application) Run(args []string, stdout, stderr io.Writer) erro
 		printHelp(stdout)
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q", args[0])
+		return fmt.Errorf("%w: unknown command %q", ErrInvalidInput, args[0])
 	}
 }
 
@@ -72,10 +74,10 @@ func (application Application) runLock(ctx context.Context, args []string, stdou
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 	if flags.NArg() != 0 {
-		return errors.New("lock does not accept positional arguments")
+		return fmt.Errorf("%w: lock does not accept positional arguments", ErrInvalidInput)
 	}
 	lockPath := resolveLockfilePath(*root, *output)
 
@@ -101,7 +103,7 @@ func (application Application) runLock(ctx context.Context, args []string, stdou
 			if err := writeLockDiff(stdout, diff, "table"); err != nil {
 				return err
 			}
-			return lockfile.ErrDrift
+			return fmt.Errorf("%w: %v", lockfile.ErrDrift, lockfile.ErrDrift)
 		}
 		fmt.Fprintf(stdout, "Lockfile is current: %s\n", lockPath)
 		return nil
@@ -124,13 +126,13 @@ func (application Application) runDiff(ctx context.Context, args []string, stdou
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 	if flags.NArg() != 0 {
-		return errors.New("diff does not accept positional arguments")
+		return fmt.Errorf("%w: diff does not accept positional arguments", ErrInvalidInput)
 	}
 	if err := validateFormat(*format, "table", "json"); err != nil {
-		return err
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 	path := resolveLockfilePath(*root, *lockPath)
 	existing, err := lockfile.Read(path)
@@ -150,7 +152,7 @@ func (application Application) runDiff(ctx context.Context, args []string, stdou
 		return err
 	}
 	if !diff.Clean() {
-		return lockfile.ErrDrift
+		return fmt.Errorf("%w: %v", lockfile.ErrDrift, lockfile.ErrDrift)
 	}
 	return nil
 }
@@ -196,13 +198,13 @@ func (application Application) runDiscover(ctx context.Context, args []string, s
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 	if flags.NArg() != 0 {
-		return errors.New("discover does not accept positional arguments")
+		return fmt.Errorf("%w: discover does not accept positional arguments", ErrInvalidInput)
 	}
 	if err := validateFormat(*format, "table", "json"); err != nil {
-		return err
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 
 	found, err := application.discover(ctx, discovery.Options{Root: *root})
@@ -254,20 +256,24 @@ func (application Application) runAudit(ctx context.Context, args []string, stdo
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
-		return err
+
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 	if flags.NArg() != 0 {
-		return errors.New("audit does not accept positional arguments")
+		return fmt.Errorf("%w: audit does not accept positional arguments", ErrInvalidInput)
 	}
 	if err := validateFormat(*format, "table", "json", "sarif"); err != nil {
-		return err
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 	if !validThreshold(*failOn) {
-		return errors.New("fail-on must be critical, high, medium, low, or none")
+		return fmt.Errorf("%w: fail-on must be critical, high, medium, low, or none", ErrInvalidInput)
 	}
 
 	configuredPolicy, err := policy.Load(*root)
 	if err != nil {
+		if errors.Is(err, policy.ErrInvalidPolicy) {
+			return fmt.Errorf("%w: %v", ErrInvalidInput, err)
+		}
 		return err
 	}
 	found, err := application.discover(ctx, discovery.Options{Root: *root})
@@ -312,10 +318,10 @@ func (application Application) runAudit(ctx context.Context, args []string, stdo
 	}
 
 	if len(policyResult.Violations) != 0 {
-		return errors.New("audit violates repository policy")
+		return fmt.Errorf("%w: audit violates repository policy", ErrPolicyViolation)
 	}
 	if shouldFail(findings, effectiveThreshold) {
-		return fmt.Errorf("audit found issues at or above %s severity", effectiveThreshold)
+		return fmt.Errorf("%w: audit found issues at or above %s severity", ErrFindingsPresent, effectiveThreshold)
 	}
 	return nil
 }
@@ -366,5 +372,6 @@ Usage:
   sourceward audit [--root PATH] [--format table|json|sarif] [--fail-on SEVERITY]
   sourceward lock [--root PATH] [--output PATH] [--check] [--include-personal]
   sourceward diff [--root PATH] [--lockfile PATH] [--format table|json] [--include-personal]
+  sourceward scan [--root PATH] [--format table|json|sarif] [--fail-on SEVERITY] [--check-lock]
   sourceward version`)
 }

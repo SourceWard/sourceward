@@ -18,6 +18,8 @@ import (
 
 const Version = 1
 
+var ErrInvalidPolicy = errors.New("invalid repository policy")
+
 type Policy struct {
 	Version              int         `yaml:"version"`
 	SeverityThreshold    string      `yaml:"severity_threshold,omitempty"`
@@ -67,14 +69,14 @@ func Load(root string) (*Policy, error) {
 	decoder.KnownFields(true)
 	var configured Policy
 	if err := decoder.Decode(&configured); err != nil {
-		return nil, fmt.Errorf("decode sourceward.yaml: %w", err)
+		return nil, fmt.Errorf("%w: decode sourceward.yaml: %v", ErrInvalidPolicy, err)
 	}
 	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
-		return nil, errors.New("sourceward.yaml must contain one YAML document")
+		return nil, fmt.Errorf("%w: sourceward.yaml must contain one YAML document", ErrInvalidPolicy)
 	}
 	if err := configured.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", ErrInvalidPolicy, err)
 	}
 	return &configured, nil
 }

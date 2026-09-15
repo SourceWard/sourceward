@@ -74,6 +74,18 @@ go build -o "$binary" ./cmd/sourceward
 version=$("$binary" version)
 test "$version" = "0.1.0-dev"
 
+set +e
+"$binary" unknown >"$work_dir/invalid.out" 2>"$work_dir/invalid.err"
+status=$?
+set -e
+test "$status" -eq 2
+
+set +e
+"$binary" diff --root "$fixture" >"$work_dir/operational.out" 2>"$work_dir/operational.err"
+status=$?
+set -e
+test "$status" -eq 3
+
 HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" discover \
 	--root "$fixture" \
 	--format json >"$work_dir/discover.json"
@@ -106,6 +118,16 @@ grep -q '"rule_id": "SW103"' "$work_dir/audit.json"
 grep -q '"rule_id": "SW106"' "$work_dir/audit.json"
 grep -q '"rule_id": "SW202"' "$work_dir/audit.json"
 grep -q '"rule_id": "SW203"' "$work_dir/audit.json"
+
+set +e
+HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" scan \
+	--root "$fixture" \
+	--format json >"$work_dir/scan-findings.json" 2>"$work_dir/scan-findings.err"
+status=$?
+set -e
+test "$status" -eq 4
+grep -q '"inventory": {' "$work_dir/scan-findings.json"
+grep -q '"rule_id": "SW001"' "$work_dir/scan-findings.json"
 
 if HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" audit \
 	--root "$fixture" \
@@ -142,17 +164,17 @@ exceptions:
     expires: 2099-12-31
 EOF
 
-if HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" audit \
+set +e
+HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" scan \
 	--root "$fixture" \
 	--format json >"$work_dir/policy-audit.json" 2>"$work_dir/policy-audit.err"
-then
-	echo "policy audit unexpectedly succeeded" >&2
-	exit 1
-fi
+status=$?
+set -e
+test "$status" -eq 5
 grep -q '"applied": true' "$work_dir/policy-audit.json"
 grep -q '"code": "denied_rule"' "$work_dir/policy-audit.json"
 grep -q '"artifact": "skill:unsafe-install"' "$work_dir/policy-audit.json"
-grep -q 'audit violates repository policy' "$work_dir/policy-audit.err"
+grep -q 'scan violates repository policy' "$work_dir/policy-audit.err"
 rm "$fixture/sourceward.yaml"
 
 lockfile="$fixture/sourceward.lock.json"
@@ -197,6 +219,13 @@ HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" diff \
 grep -q '"added": \[\]' "$work_dir/clean-diff.json"
 grep -q '"changed": \[\]' "$work_dir/clean-diff.json"
 
+HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" scan \
+	--root "$fixture" \
+	--format json \
+	--fail-on none \
+	--check-lock >"$work_dir/clean-scan.json"
+grep -q '"lockfile": {' "$work_dir/clean-scan.json"
+
 printf '\nChanged after locking.\n' >>"$fixture/.github/skills/unsafe-install/SKILL.md"
 if HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
 	--root "$fixture" \
@@ -220,3 +249,14 @@ then
 fi
 grep -q '"fields": \[' "$work_dir/drift-diff.json"
 grep -q '"content"' "$work_dir/drift-diff.json"
+
+set +e
+HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" scan \
+	--root "$fixture" \
+	--format json \
+	--fail-on none \
+	--check-lock >"$work_dir/drift-scan.json" 2>"$work_dir/drift-scan.err"
+status=$?
+set -e
+test "$status" -eq 6
+grep -q '"content"' "$work_dir/drift-scan.json"

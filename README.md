@@ -46,6 +46,19 @@ make build
 
 ## Usage
 
+Run the complete repository workflow:
+
+```sh
+sourceward scan
+sourceward scan --format json
+sourceward scan --format sarif > sourceward.sarif
+sourceward scan --check-lock
+```
+
+`scan` composes discovery, deterministic audit rules, repository policy, and
+optional lockfile comparison. See [unified scanning](docs/scan.md) for output
+and stable exit codes.
+
 Inventory skills and editor extensions:
 
 ```sh

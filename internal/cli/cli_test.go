@@ -42,7 +42,7 @@ func TestHelpAndVersionCommands(t *testing.T) {
 }
 
 func TestSubcommandHelpReturnsSuccess(t *testing.T) {
-	for _, command := range []string{"discover", "audit", "lock"} {
+	for _, command := range []string{"discover", "audit", "lock", "diff", "scan"} {
 		t.Run(command, func(t *testing.T) {
 			var stderr bytes.Buffer
 			if err := testApplication(nil, nil).Run([]string{command, "--help"}, &bytes.Buffer{}, &stderr); err != nil {
@@ -255,6 +255,8 @@ func TestCommandValidation(t *testing.T) {
 		{name: "audit threshold", args: []string{"audit", "--fail-on", "urgent"}, want: "fail-on must be"},
 		{name: "audit positional argument", args: []string{"audit", "extra"}, want: "positional"},
 		{name: "lock positional argument", args: []string{"lock", "extra"}, want: "positional"},
+		{name: "scan format", args: []string{"scan", "--format", "yaml"}, want: "table, json, sarif"},
+		{name: "scan threshold", args: []string{"scan", "--fail-on", "urgent"}, want: "fail-on must be"},
 	}
 
 	for _, test := range tests {
