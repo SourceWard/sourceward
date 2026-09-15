@@ -72,7 +72,7 @@ cd "$repo_root"
 go build -o "$binary" ./cmd/sourceward
 
 version=$("$binary" version)
-test "$version" = "0.1.1"
+test "$version" = "0.1.2"
 
 set +e
 "$binary" unknown >"$work_dir/invalid.out" 2>"$work_dir/invalid.err"
