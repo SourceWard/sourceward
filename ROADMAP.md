@@ -2,6 +2,10 @@
 
 SourceWard is being built in narrow, verifiable layers.
 
+The detailed MVP scope, dependency order, quality gates, and release criteria
+are maintained in [docs/mvp-plan.md](docs/mvp-plan.md). GitHub work is tracked
+in the [MVP v0.1.0 milestone](https://github.com/SourceWard/sourceward/milestone/1).
+
 ## 0.1: Local inventory and baseline audit
 
 - Discover project and personal Agent Skills.
@@ -32,6 +36,8 @@ SourceWard is being built in narrow, verifiable layers.
 - Cross-artifact dependency and data-flow graphs.
 - Private organization inventories.
 - Compatibility and effectiveness evaluation.
+- Role-based capability recommendations.
+- Runtime endpoint enforcement and credential response.
 
 Roadmap items are directional and may change based on security research and
 user feedback.
