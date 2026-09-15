@@ -103,6 +103,18 @@ covering all files in the artifact directory; artifacts without locally
 addressable contents receive a metadata digest. Lockfile schema version 2 adds
 portable structured provenance.
 
+Explain lockfile drift without exposing artifact contents:
+
+```sh
+sourceward diff
+sourceward diff --format json
+sourceward lock --check
+```
+
+Drift output names added and removed artifact identities and changed fields such
+as `version`, `provenance`, `content`, or `metadata`. Clean comparisons exit
+successfully; drift returns a nonzero exit status after writing the diff.
+
 ## Current scope
 
 This first release establishes normalized inventory, provenance, and scanner

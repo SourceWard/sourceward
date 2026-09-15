@@ -48,6 +48,8 @@ func (application Application) Run(args []string, stdout, stderr io.Writer) erro
 		return application.runAudit(ctx, args[1:], stdout, stderr)
 	case "lock":
 		return application.runLock(ctx, args[1:], stdout, stderr)
+	case "diff":
+		return application.runDiff(ctx, args[1:], stdout, stderr)
 	case "version", "--version", "-v":
 		fmt.Fprintln(stdout, Version)
 		return nil
@@ -90,8 +92,16 @@ func (application Application) runLock(ctx context.Context, args []string, stdou
 	}
 
 	if *check {
-		if err := lockfile.Check(lockPath, locked); err != nil {
+		existing, err := lockfile.Read(lockPath)
+		if err != nil {
 			return err
+		}
+		diff := lockfile.Compare(existing, locked)
+		if !diff.Clean() {
+			if err := writeLockDiff(stdout, diff, "table"); err != nil {
+				return err
+			}
+			return lockfile.ErrDrift
 		}
 		fmt.Fprintf(stdout, "Lockfile is current: %s\n", lockPath)
 		return nil
@@ -101,6 +111,73 @@ func (application Application) runLock(ctx context.Context, args []string, stdou
 	}
 	fmt.Fprintf(stdout, "Wrote %d artifacts to %s\n", len(locked.Artifacts), lockPath)
 	return nil
+}
+
+func (application Application) runDiff(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("diff", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	root := flags.String("root", ".", "repository root to inspect")
+	lockPath := flags.String("lockfile", "", "lockfile path (default: ROOT/sourceward.lock.json)")
+	format := flags.String("format", "table", "output format: table or json")
+	includePersonal := flags.Bool("include-personal", false, "include personal skills and editor extensions")
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+	if flags.NArg() != 0 {
+		return errors.New("diff does not accept positional arguments")
+	}
+	if err := validateFormat(*format, "table", "json"); err != nil {
+		return err
+	}
+	path := resolveLockfilePath(*root, *lockPath)
+	existing, err := lockfile.Read(path)
+	if err != nil {
+		return err
+	}
+	found, err := application.discover(ctx, discovery.Options{Root: *root})
+	if err != nil {
+		return err
+	}
+	current, err := lockfile.Generate(found, lockfile.Options{Root: *root, IncludePersonal: *includePersonal})
+	if err != nil {
+		return err
+	}
+	diff := lockfile.Compare(existing, current)
+	if err := writeLockDiff(stdout, diff, *format); err != nil {
+		return err
+	}
+	if !diff.Clean() {
+		return lockfile.ErrDrift
+	}
+	return nil
+}
+
+func writeLockDiff(writer io.Writer, diff lockfile.Diff, format string) error {
+	if format == "json" {
+		return writeJSON(writer, diff)
+	}
+	table := tabwriter.NewWriter(writer, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(table, "CHANGE\tARTIFACT\tSCOPE\tSOURCE\tFIELDS")
+	for _, group := range []struct {
+		name    string
+		changes []lockfile.ArtifactChange
+	}{
+		{name: "added", changes: diff.Added},
+		{name: "removed", changes: diff.Removed},
+		{name: "changed", changes: diff.Changed},
+	} {
+		for _, change := range group.changes {
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n",
+				group.name, change.ID, change.Scope, change.Source, strings.Join(change.Fields, ","))
+		}
+	}
+	if diff.Clean() {
+		fmt.Fprintln(table, "clean\t-\t-\t-\t-")
+	}
+	return table.Flush()
 }
 
 func resolveLockfilePath(root, output string) string {
@@ -288,5 +365,6 @@ Usage:
   sourceward discover [--root PATH] [--format table|json]
   sourceward audit [--root PATH] [--format table|json|sarif] [--fail-on SEVERITY]
   sourceward lock [--root PATH] [--output PATH] [--check] [--include-personal]
+  sourceward diff [--root PATH] [--lockfile PATH] [--format table|json] [--include-personal]
   sourceward version`)
 }
