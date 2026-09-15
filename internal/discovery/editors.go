@@ -150,6 +150,7 @@ func (adapter editorAdapter) discoverCLI(ctx context.Context) ([]inventory.Artif
 			})
 			continue
 		}
+		publisher, _, _ := strings.Cut(name, ".")
 		artifacts = append(artifacts, inventory.Artifact{
 			ID:      adapter.name + ":" + name,
 			Name:    name,
@@ -157,6 +158,12 @@ func (adapter editorAdapter) discoverCLI(ctx context.Context) ([]inventory.Artif
 			Version: version,
 			Source:  adapter.name,
 			Scope:   "personal",
+			Provenance: inventory.Provenance{
+				Kind:      "marketplace",
+				Provider:  adapter.name,
+				Publisher: publisher,
+				Package:   name,
+			},
 		})
 	}
 	return artifacts, diagnostics, true
@@ -284,6 +291,12 @@ func (adapter editorAdapter) readPackage(path string, options Options) (inventor
 		Source:   adapter.name,
 		Scope:    "personal",
 		Metadata: extensionMetadata(manifest),
+		Provenance: inventory.Provenance{
+			Kind:      "marketplace",
+			Provider:  adapter.name,
+			Publisher: strings.TrimSpace(manifest.Publisher),
+			Package:   name,
+		},
 	}, nil
 }
 

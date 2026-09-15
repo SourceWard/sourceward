@@ -366,6 +366,11 @@ func mcpArtifact(
 		Source:   location.provider,
 		Scope:    location.scope,
 		Metadata: metadata,
+		Provenance: inventory.Provenance{
+			Kind:     "configuration",
+			Provider: location.provider,
+			Package:  name,
+		},
 	}
 
 	if validMCPTransport(server) {

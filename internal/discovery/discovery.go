@@ -25,7 +25,11 @@ type Adapter interface {
 }
 
 func Discover(ctx context.Context, options Options) (inventory.Inventory, error) {
-	return DiscoverWithAdapters(ctx, options, defaultAdapters())
+	found, err := DiscoverWithAdapters(ctx, options, defaultAdapters())
+	if err != nil {
+		return inventory.Inventory{}, err
+	}
+	return enrichProvenance(ctx, found, options, execCommand), nil
 }
 
 func DiscoverWithAdapters(ctx context.Context, options Options, adapters []Adapter) (inventory.Inventory, error) {

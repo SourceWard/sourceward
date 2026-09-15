@@ -18,7 +18,7 @@ import (
 	"github.com/SourceWard/sourceward/internal/inventory"
 )
 
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 var ErrDrift = errors.New("lockfile does not match discovered artifacts")
 
@@ -28,13 +28,14 @@ type Lockfile struct {
 }
 
 type Artifact struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Kind      string    `json:"kind"`
-	Version   string    `json:"version,omitempty"`
-	Scope     string    `json:"scope"`
-	Source    string    `json:"source"`
-	Integrity Integrity `json:"integrity"`
+	ID         string               `json:"id"`
+	Name       string               `json:"name"`
+	Kind       string               `json:"kind"`
+	Version    string               `json:"version,omitempty"`
+	Scope      string               `json:"scope"`
+	Source     string               `json:"source"`
+	Provenance inventory.Provenance `json:"provenance"`
+	Integrity  Integrity            `json:"integrity"`
 }
 
 type Integrity struct {
@@ -64,12 +65,16 @@ func Generate(found inventory.Inventory, options Options) (Lockfile, error) {
 		}
 
 		lockedArtifact := Artifact{
-			ID:      artifact.ID,
-			Name:    artifact.Name,
-			Kind:    artifact.Kind,
-			Version: artifact.Version,
-			Scope:   artifact.Scope,
-			Source:  normalizeSource(artifact.Source, artifact.Scope, root),
+			ID:         artifact.ID,
+			Name:       artifact.Name,
+			Kind:       artifact.Kind,
+			Version:    artifact.Version,
+			Scope:      artifact.Scope,
+			Source:     normalizeSource(artifact.Source, artifact.Scope, root),
+			Provenance: artifact.Provenance,
+		}
+		if lockedArtifact.Provenance.Kind == "" {
+			lockedArtifact.Provenance.Kind = "unknown"
 		}
 		integrity, err := artifactIntegrity(artifact, lockedArtifact)
 		if err != nil {
@@ -172,21 +177,23 @@ func artifactIntegrity(artifact inventory.Artifact, locked Artifact) (Integrity,
 	}
 
 	content, err := json.Marshal(struct {
-		ID       string            `json:"id"`
-		Name     string            `json:"name"`
-		Kind     string            `json:"kind"`
-		Version  string            `json:"version"`
-		Source   string            `json:"source"`
-		Scope    string            `json:"scope"`
-		Metadata map[string]string `json:"metadata,omitempty"`
+		ID         string               `json:"id"`
+		Name       string               `json:"name"`
+		Kind       string               `json:"kind"`
+		Version    string               `json:"version"`
+		Source     string               `json:"source"`
+		Scope      string               `json:"scope"`
+		Metadata   map[string]string    `json:"metadata,omitempty"`
+		Provenance inventory.Provenance `json:"provenance"`
 	}{
-		ID:       locked.ID,
-		Name:     locked.Name,
-		Kind:     locked.Kind,
-		Version:  locked.Version,
-		Source:   locked.Source,
-		Scope:    locked.Scope,
-		Metadata: artifact.Metadata,
+		ID:         locked.ID,
+		Name:       locked.Name,
+		Kind:       locked.Kind,
+		Version:    locked.Version,
+		Source:     locked.Source,
+		Scope:      locked.Scope,
+		Metadata:   artifact.Metadata,
+		Provenance: locked.Provenance,
 	})
 	if err != nil {
 		return Integrity{}, fmt.Errorf("encode artifact metadata: %w", err)
