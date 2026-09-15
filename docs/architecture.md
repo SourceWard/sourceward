@@ -24,6 +24,9 @@ internal/discovery  internal/audit  internal/lockfile
                       v
              internal/inventory
                Domain model
+
+internal/sarif consumes audit findings and produces the external code-scanning
+representation without changing the audit domain model.
 ```
 
 - `cmd/sourceward` contains process wiring only.

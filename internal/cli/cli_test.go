@@ -139,6 +139,32 @@ func TestAuditCanReportWithoutFailing(t *testing.T) {
 	}
 }
 
+func TestAuditSARIF(t *testing.T) {
+	root := t.TempDir()
+	findings := []audit.Finding{{
+		RuleID:      "SW001",
+		Severity:    "critical",
+		ArtifactID:  "skill:unsafe",
+		Path:        filepath.Join(root, ".github", "skills", "unsafe", "SKILL.md"),
+		Line:        5,
+		Description: "Remote content is piped directly to a shell",
+	}}
+	var stdout bytes.Buffer
+
+	if err := testApplication(nil, findings).Run(
+		[]string{"audit", "--root", root, "--format", "sarif", "--fail-on", "none"},
+		&stdout,
+		&bytes.Buffer{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"$schema"`, `"version": "2.1.0"`, `"ruleId": "SW001"`} {
+		if !strings.Contains(stdout.String(), expected) {
+			t.Fatalf("output %q does not contain %q", stdout.String(), expected)
+		}
+	}
+}
+
 func TestCommandValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -148,7 +174,7 @@ func TestCommandValidation(t *testing.T) {
 		{name: "unknown command", args: []string{"unknown"}, want: "unknown command"},
 		{name: "discover format", args: []string{"discover", "--format", "yaml"}, want: "format must be"},
 		{name: "discover positional argument", args: []string{"discover", "extra"}, want: "positional"},
-		{name: "audit format", args: []string{"audit", "--format", "yaml"}, want: "format must be"},
+		{name: "audit format", args: []string{"audit", "--format", "yaml"}, want: "table, json, sarif"},
 		{name: "audit threshold", args: []string{"audit", "--fail-on", "urgent"}, want: "fail-on must be"},
 		{name: "audit positional argument", args: []string{"audit", "extra"}, want: "positional"},
 		{name: "lock positional argument", args: []string{"lock", "extra"}, want: "positional"},
