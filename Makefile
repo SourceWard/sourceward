@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e fmt fmt-check vet check clean
+.PHONY: build test test-e2e test-distribution fmt fmt-check vet check clean
 
 build:
 	mkdir -p bin
@@ -10,6 +10,9 @@ test:
 test-e2e:
 	./scripts/test-e2e.sh
 
+test-distribution:
+	./scripts/test-distribution.sh
+
 fmt:
 	gofmt -w ./cmd ./internal
 
@@ -19,7 +22,7 @@ fmt-check:
 vet:
 	go vet ./...
 
-check: fmt-check vet test test-e2e build
+check: fmt-check vet test test-e2e test-distribution build
 
 clean:
 	rm -f bin/sourceward

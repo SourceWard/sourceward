@@ -20,7 +20,7 @@ import (
 	"github.com/SourceWard/sourceward/internal/sarif"
 )
 
-const Version = "0.1.0-dev"
+var Version = "0.1.0-dev"
 
 type Application struct {
 	discover func(context.Context, discovery.Options) (inventory.Inventory, error)
