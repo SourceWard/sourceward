@@ -4,7 +4,7 @@ inputs:
   version:
     description: SourceWard release tag
     required: false
-    default: v0.1.0
+    default: v0.1.1
   root:
     description: Repository root to scan
     required: false

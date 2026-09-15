@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - uses: SourceWard/sourceward@v0.1.0
+      - uses: SourceWard/sourceward@v0.1.1
         with:
           check-lock: "true"
 ```
@@ -50,7 +50,7 @@ pull-request workflows.
 
 | Input | Default | CLI mapping |
 |---|---|---|
-| `version` | `v0.1.0` | Release binary version |
+| `version` | `v0.1.1` | Release binary version |
 | `root` | `.` | `--root` |
 | `format` | `sarif` | `--format` |
 | `fail-on` | `high` | `--fail-on` |

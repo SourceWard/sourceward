@@ -38,9 +38,9 @@ curl --proto '=https' --tlsv1.2 -fsSL "$base_url/checksums.txt" -o "$destination
 (
 	cd "$destination"
 	if command -v sha256sum >/dev/null 2>&1; then
-		grep "  $filename\$" checksums.txt | sha256sum -c -
+		grep "  $filename\$" checksums.txt | sha256sum -c - >&2
 	else
-		grep "  $filename\$" checksums.txt | shasum -a 256 -c -
+		grep "  $filename\$" checksums.txt | shasum -a 256 -c - >&2
 	fi
 )
 
