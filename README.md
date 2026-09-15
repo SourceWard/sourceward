@@ -46,6 +46,11 @@ sourceward discover --format json
 sourceward discover --root /path/to/repository
 ```
 
+Discovery JSON includes structured diagnostics for unavailable providers,
+malformed artifacts, and inaccessible configured locations. Human-readable
+diagnostics are written to standard error. See
+[artifact discovery](docs/discovery.md) for the adapter and diagnostic contract.
+
 Audit discovered skills:
 
 ```sh
