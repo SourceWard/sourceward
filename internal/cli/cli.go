@@ -10,11 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/SourceWard/sourceward/internal/audit"
 	"github.com/SourceWard/sourceward/internal/discovery"
 	"github.com/SourceWard/sourceward/internal/inventory"
 	"github.com/SourceWard/sourceward/internal/lockfile"
+	"github.com/SourceWard/sourceward/internal/policy"
 	"github.com/SourceWard/sourceward/internal/sarif"
 )
 
@@ -187,6 +189,10 @@ func (application Application) runAudit(ctx context.Context, args []string, stdo
 		return errors.New("fail-on must be critical, high, medium, low, or none")
 	}
 
+	configuredPolicy, err := policy.Load(*root)
+	if err != nil {
+		return err
+	}
 	found, err := application.discover(ctx, discovery.Options{Root: *root})
 	if err != nil {
 		return err
@@ -195,9 +201,17 @@ func (application Application) runAudit(ctx context.Context, args []string, stdo
 	if err != nil {
 		return err
 	}
+	findings, policyResult := policy.Evaluate(configuredPolicy, found, findings, *root, time.Now())
+	effectiveThreshold := *failOn
+	if configuredPolicy != nil && configuredPolicy.SeverityThreshold != "" {
+		effectiveThreshold = configuredPolicy.SeverityThreshold
+	}
 
 	if *format == "json" {
-		if err := writeJSON(stdout, map[string]any{"findings": findings}); err != nil {
+		if err := writeJSON(stdout, struct {
+			Findings []audit.Finding `json:"findings"`
+			Policy   policy.Result   `json:"policy"`
+		}{Findings: findings, Policy: policyResult}); err != nil {
 			return err
 		}
 	} else if *format == "sarif" {
@@ -220,8 +234,11 @@ func (application Application) runAudit(ctx context.Context, args []string, stdo
 		}
 	}
 
-	if shouldFail(findings, *failOn) {
-		return fmt.Errorf("audit found issues at or above %s severity", *failOn)
+	if len(policyResult.Violations) != 0 {
+		return errors.New("audit violates repository policy")
+	}
+	if shouldFail(findings, effectiveThreshold) {
+		return fmt.Errorf("audit found issues at or above %s severity", effectiveThreshold)
 	}
 	return nil
 }

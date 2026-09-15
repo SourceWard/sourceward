@@ -130,6 +130,31 @@ grep -q '"id": "SW205"' "$work_dir/audit.sarif"
 grep -q '"uri": ".github/skills/unsafe-install/SKILL.md"' "$work_dir/audit.sarif"
 grep -q '"uri": ".mcp.json"' "$work_dir/audit.sarif"
 
+cat >"$fixture/sourceward.yaml" <<'EOF'
+version: 1
+severity_threshold: none
+denied_rules:
+  - SW202
+exceptions:
+  - rule: SW001
+    artifact: skill:unsafe-install
+    reason: E2E fixture exception
+    expires: 2099-12-31
+EOF
+
+if HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" audit \
+	--root "$fixture" \
+	--format json >"$work_dir/policy-audit.json" 2>"$work_dir/policy-audit.err"
+then
+	echo "policy audit unexpectedly succeeded" >&2
+	exit 1
+fi
+grep -q '"applied": true' "$work_dir/policy-audit.json"
+grep -q '"code": "denied_rule"' "$work_dir/policy-audit.json"
+grep -q '"artifact": "skill:unsafe-install"' "$work_dir/policy-audit.json"
+grep -q 'audit violates repository policy' "$work_dir/policy-audit.err"
+rm "$fixture/sourceward.yaml"
+
 lockfile="$fixture/sourceward.lock.json"
 HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
 	--root "$fixture" \

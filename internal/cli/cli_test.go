@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -161,6 +162,57 @@ func TestAuditCanReportWithoutFailing(t *testing.T) {
 		&bytes.Buffer{},
 	); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAuditValidatesPolicyBeforeDiscovery(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(root, "sourceward.yaml"),
+		[]byte("version: 1\nunknown_field: true\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	discovered := false
+	application := New()
+	application.discover = func(context.Context, discovery.Options) (inventory.Inventory, error) {
+		discovered = true
+		return inventory.Inventory{}, nil
+	}
+	err := application.Run(
+		[]string{"audit", "--root", root, "--format", "json"},
+		&bytes.Buffer{},
+		&bytes.Buffer{},
+	)
+	if err == nil || !strings.Contains(err.Error(), "unknown_field") {
+		t.Fatalf("unexpected error %v", err)
+	}
+	if discovered {
+		t.Fatal("discovery ran before policy validation")
+	}
+}
+
+func TestAuditJSONIncludesPolicyEvaluation(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(root, "sourceward.yaml"),
+		[]byte("version: 1\nseverity_threshold: none\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	if err := testApplication(nil, []audit.Finding{{RuleID: "SW005", Severity: "medium"}}).Run(
+		[]string{"audit", "--root", root, "--format", "json"},
+		&stdout,
+		&bytes.Buffer{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), `"applied": true`) ||
+		!strings.Contains(stdout.String(), `"severity_threshold": "none"`) {
+		t.Fatalf("missing policy result in %q", stdout.String())
 	}
 }
 
