@@ -85,7 +85,9 @@ This first release establishes the normalized artifact inventory and scanner
 interfaces. Planned artifact types include MCP servers, hooks, custom agents,
 IDE extensions, and agent-downloaded executables.
 
-See [ROADMAP.md](ROADMAP.md) for the intended sequence.
+See [ROADMAP.md](ROADMAP.md) for product direction and the
+[MVP plan](docs/mvp-plan.md) for the ordered implementation backlog and release
+criteria.
 
 ## Security
 
