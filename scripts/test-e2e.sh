@@ -190,6 +190,13 @@ HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
 	--output "$lockfile" \
 	--check
 
+HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" diff \
+	--root "$fixture" \
+	--lockfile "$lockfile" \
+	--format json >"$work_dir/clean-diff.json"
+grep -q '"added": \[\]' "$work_dir/clean-diff.json"
+grep -q '"changed": \[\]' "$work_dir/clean-diff.json"
+
 printf '\nChanged after locking.\n' >>"$fixture/.github/skills/unsafe-install/SKILL.md"
 if HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" lock \
 	--root "$fixture" \
@@ -199,4 +206,17 @@ then
 	echo "lock check unexpectedly succeeded after artifact drift" >&2
 	exit 1
 fi
+grep -q 'changed' "$work_dir/lock-check.txt"
+grep -q 'content' "$work_dir/lock-check.txt"
 grep -q 'lockfile does not match discovered artifacts' "$work_dir/lock-check.err"
+
+if HOME="$home" PATH="$empty_path" COPILOT_SKILLS_DIRS="" "$binary" diff \
+	--root "$fixture" \
+	--lockfile "$lockfile" \
+	--format json >"$work_dir/drift-diff.json" 2>"$work_dir/drift-diff.err"
+then
+	echo "diff unexpectedly succeeded after artifact drift" >&2
+	exit 1
+fi
+grep -q '"fields": \[' "$work_dir/drift-diff.json"
+grep -q '"content"' "$work_dir/drift-diff.json"

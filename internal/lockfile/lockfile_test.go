@@ -218,6 +218,7 @@ func TestLockfileIncludesPortableProvenance(t *testing.T) {
 	if err := os.MkdirAll(skillDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := os.WriteFile(skillPath, []byte("# Review\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -259,6 +260,45 @@ func TestLockfileIncludesPortableProvenance(t *testing.T) {
 	}
 	if strings.Contains(string(encoded), root) {
 		t.Fatalf("lockfile exposed local root: %s", encoded)
+	}
+}
+
+func TestCompareReportsEveryChangeTypeDeterministically(t *testing.T) {
+	clean := false
+	dirty := true
+	existing := Lockfile{SchemaVersion: SchemaVersion, Artifacts: []Artifact{
+		{ID: "removed", Scope: "project", Source: "skills"},
+		{ID: "version", Scope: "project", Source: "skills", Version: "1"},
+		{ID: "provenance", Scope: "project", Source: "skills", Provenance: inventory.Provenance{Kind: "git", Revision: "a", Dirty: &clean}},
+		{ID: "content", Scope: "project", Source: "skills", Integrity: Integrity{Scope: "content", Algorithm: "sha256", Digest: "a"}},
+		{ID: "metadata", Scope: "project", Source: "mcp", Integrity: Integrity{Scope: "metadata", Algorithm: "sha256", Digest: "a"}},
+	}}
+	current := Lockfile{SchemaVersion: SchemaVersion, Artifacts: []Artifact{
+		{ID: "added", Scope: "project", Source: "skills"},
+		{ID: "version", Scope: "project", Source: "skills", Version: "2"},
+		{ID: "provenance", Scope: "project", Source: "skills", Provenance: inventory.Provenance{Kind: "git", Revision: "b", Dirty: &dirty}},
+		{ID: "content", Scope: "project", Source: "skills", Integrity: Integrity{Scope: "content", Algorithm: "sha256", Digest: "b"}},
+		{ID: "metadata", Scope: "project", Source: "mcp", Integrity: Integrity{Scope: "metadata", Algorithm: "sha256", Digest: "b"}},
+	}}
+
+	diff := Compare(existing, current)
+	if diff.Clean() || len(diff.Added) != 1 || diff.Added[0].ID != "added" ||
+		len(diff.Removed) != 1 || diff.Removed[0].ID != "removed" {
+		t.Fatalf("unexpected added/removed diff %#v", diff)
+	}
+	want := map[string][]string{
+		"content":    {"content"},
+		"metadata":   {"metadata"},
+		"provenance": {"provenance"},
+		"version":    {"version"},
+	}
+	for _, changed := range diff.Changed {
+		if !reflect.DeepEqual(changed.Fields, want[changed.ID]) {
+			t.Fatalf("unexpected fields for %q: %#v", changed.ID, changed.Fields)
+		}
+	}
+	if len(diff.Changed) != len(want) {
+		t.Fatalf("unexpected changed diff %#v", diff.Changed)
 	}
 }
 

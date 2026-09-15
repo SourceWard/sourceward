@@ -49,6 +49,19 @@ type Options struct {
 	IncludePersonal bool
 }
 
+type Diff struct {
+	Added   []ArtifactChange `json:"added"`
+	Removed []ArtifactChange `json:"removed"`
+	Changed []ArtifactChange `json:"changed"`
+}
+
+type ArtifactChange struct {
+	ID     string   `json:"id"`
+	Scope  string   `json:"scope"`
+	Source string   `json:"source"`
+	Fields []string `json:"fields,omitempty"`
+}
+
 func Generate(found inventory.Inventory, options Options) (Lockfile, error) {
 	root, err := filepath.Abs(options.Root)
 	if err != nil {
@@ -137,22 +150,120 @@ func Write(path string, locked Lockfile) error {
 }
 
 func Check(path string, current Lockfile) error {
-	content, err := os.ReadFile(path)
+	existing, err := Read(path)
 	if err != nil {
-		return fmt.Errorf("read lockfile: %w", err)
+		return err
 	}
-
-	var existing Lockfile
-	if err := json.Unmarshal(content, &existing); err != nil {
-		return fmt.Errorf("decode lockfile: %w", err)
-	}
-	if existing.SchemaVersion != SchemaVersion {
-		return fmt.Errorf("unsupported lockfile schema version %d", existing.SchemaVersion)
-	}
-	if !reflect.DeepEqual(existing, current) {
+	if !Compare(existing, current).Clean() {
 		return ErrDrift
 	}
 	return nil
+}
+
+func Read(path string) (Lockfile, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return Lockfile{}, fmt.Errorf("read lockfile: %w", err)
+	}
+	var locked Lockfile
+	if err := json.Unmarshal(content, &locked); err != nil {
+		return Lockfile{}, fmt.Errorf("decode lockfile: %w", err)
+	}
+	if locked.SchemaVersion != SchemaVersion {
+		return Lockfile{}, fmt.Errorf("unsupported lockfile schema version %d", locked.SchemaVersion)
+	}
+	return locked, nil
+}
+
+func Compare(existing, current Lockfile) Diff {
+	diff := Diff{
+		Added:   []ArtifactChange{},
+		Removed: []ArtifactChange{},
+		Changed: []ArtifactChange{},
+	}
+	existingByKey := artifactMap(existing.Artifacts)
+	currentByKey := artifactMap(current.Artifacts)
+	for key, artifact := range currentByKey {
+		previous, ok := existingByKey[key]
+		if !ok {
+			diff.Added = append(diff.Added, changeIdentity(artifact))
+			continue
+		}
+		fields := changedFields(previous, artifact)
+		if len(fields) != 0 {
+			change := changeIdentity(artifact)
+			change.Fields = fields
+			diff.Changed = append(diff.Changed, change)
+		}
+	}
+	for key, artifact := range existingByKey {
+		if _, ok := currentByKey[key]; !ok {
+			diff.Removed = append(diff.Removed, changeIdentity(artifact))
+		}
+	}
+	sortChanges(diff.Added)
+	sortChanges(diff.Removed)
+	sortChanges(diff.Changed)
+	return diff
+}
+
+func (diff Diff) Clean() bool {
+	return len(diff.Added) == 0 && len(diff.Removed) == 0 && len(diff.Changed) == 0
+}
+
+func artifactMap(artifacts []Artifact) map[string]Artifact {
+	result := make(map[string]Artifact, len(artifacts))
+	for _, artifact := range artifacts {
+		result[artifact.ID+"\x00"+artifact.Scope+"\x00"+artifact.Source] = artifact
+	}
+	return result
+}
+
+func changeIdentity(artifact Artifact) ArtifactChange {
+	return ArtifactChange{ID: artifact.ID, Scope: artifact.Scope, Source: artifact.Source}
+}
+
+func changedFields(left, right Artifact) []string {
+	var fields []string
+	if left.Name != right.Name {
+		fields = append(fields, "name")
+	}
+	if left.Kind != right.Kind {
+		fields = append(fields, "kind")
+	}
+	if left.Version != right.Version {
+		fields = append(fields, "version")
+	}
+	if !reflect.DeepEqual(left.Provenance, right.Provenance) {
+		fields = append(fields, "provenance")
+	}
+	if left.Integrity.Scope != right.Integrity.Scope {
+		fields = append(fields, "integrity_scope")
+	}
+	if left.Integrity.Algorithm != right.Integrity.Algorithm {
+		fields = append(fields, "integrity_algorithm")
+	}
+	if left.Integrity.Digest != right.Integrity.Digest {
+		field := "metadata"
+		if left.Integrity.Scope == "content" || right.Integrity.Scope == "content" {
+			field = "content"
+		}
+		fields = append(fields, field)
+	}
+	sort.Strings(fields)
+	return fields
+}
+
+func sortChanges(changes []ArtifactChange) {
+	sort.Slice(changes, func(i, j int) bool {
+		if changes[i].ID != changes[j].ID {
+			return changes[i].ID < changes[j].ID
+		}
+		if changes[i].Scope != changes[j].Scope {
+			return changes[i].Scope < changes[j].Scope
+		}
+		return changes[i].Source < changes[j].Source
+	})
 }
 
 func marshal(locked Lockfile) ([]byte, error) {
