@@ -9,6 +9,8 @@ The initial CLI discovers:
 
 - Agent Skills in GitHub Copilot-compatible project and personal locations.
 - Skills configured through `COPILOT_SKILLS_DIRS`.
+- MCP servers configured for GitHub Copilot, VS Code, Cursor, Claude Code, and
+  Codex without exposing credential values.
 - Installed Visual Studio Code and Cursor extensions, including versions.
 
 It also performs deterministic baseline checks for dangerous skill behavior,
@@ -50,6 +52,8 @@ Discovery JSON includes structured diagnostics for unavailable providers,
 malformed artifacts, and inaccessible configured locations. Human-readable
 diagnostics are written to standard error. See
 [artifact discovery](docs/discovery.md) for the adapter and diagnostic contract.
+MCP-specific locations and privacy guarantees are documented in
+[MCP discovery](docs/mcp-discovery.md).
 
 Audit discovered skills:
 
