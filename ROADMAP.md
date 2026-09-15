@@ -12,10 +12,10 @@ SourceWard is being built in narrow, verifiable layers.
 
 ## 0.2: Provenance and change intelligence
 
-- Hash artifact contents.
+- [x] Hash artifact contents.
 - Track source repositories and immutable revisions.
 - Compare newly installed versions with prior versions.
-- Emit a SourceWard lockfile.
+- [x] Emit a SourceWard lockfile.
 - Export SARIF.
 
 ## 0.3: MCP and organization policy

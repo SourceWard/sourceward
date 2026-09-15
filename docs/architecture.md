@@ -13,13 +13,15 @@ cmd/sourceward
           v
 internal/cli
     Command parsing, orchestration, and rendering
-          |
-          +------------------+
-          v                  v
-internal/discovery      internal/audit
-    Artifact adapters       Deterministic rules
-          \                  /
-           v                v
+       |              |             |
+       v              v             v
+internal/discovery  internal/audit  internal/lockfile
+  Artifact adapters   Rules          Integrity and drift
+       \              |             /
+        \             |            /
+         +------------+-----------+
+                      |
+                      v
              internal/inventory
                Domain model
 ```
@@ -28,6 +30,7 @@ internal/discovery      internal/audit
 - `internal/cli` validates input before invoking application behavior.
 - `internal/discovery` finds provider-specific artifacts and normalizes them.
 - `internal/audit` evaluates normalized artifacts and returns evidence.
+- `internal/lockfile` creates deterministic integrity records and detects drift.
 - `internal/inventory` defines provider-neutral domain types.
 
 Dependencies should point toward the domain model. Provider-specific concepts
@@ -67,6 +70,10 @@ model.
 
 Human-readable output may evolve, but JSON field changes require compatibility
 consideration, documentation, and tests.
+
+Lockfiles exclude timestamps and personal artifacts by default. Project paths
+are repository-relative, artifact ordering is deterministic, and the schema is
+explicitly versioned.
 
 ## Testing strategy
 
