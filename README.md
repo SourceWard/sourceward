@@ -18,7 +18,10 @@ The initial CLI discovers:
 
 It also performs deterministic baseline checks for dangerous skill behavior,
 including remote content piped to a shell, credential access, broad tool
-permissions, likely secret use, and hidden Unicode controls.
+permissions, likely secret use, and hidden Unicode controls. MCP and extension
+checks cover high-signal configuration and manifest risks without executing
+their code. See [risk rules](docs/risk-rules.md) for the current catalog and
+interpretation guidance.
 
 > [!IMPORTANT]
 > SourceWard is early-stage security software. A clean report is not proof that
