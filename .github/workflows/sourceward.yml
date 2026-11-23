@@ -25,7 +25,7 @@ jobs:
         run: go run ./cmd/sourceward scan --format sarif --fail-on none > sourceward.sarif
       - name: Upload SourceWard SARIF
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: github/codeql-action/upload-sarif@311b4ee155dcdab395044f00946f664bd51ff173
+        uses: github/codeql-action/upload-sarif@38112626f97ac1fd7acf3df7ebca51f4677c1b38
         with:
           sarif_file: sourceward.sarif
           category: sourceward
